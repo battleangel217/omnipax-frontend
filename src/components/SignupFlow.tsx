@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ApiUnreachable, api, saveTokens } from "@/lib/api";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -12,7 +14,7 @@ function formatPhone(digits: string) {
   return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
 }
 
-const STEP_LABELS = ["Phone", "Email", "OTP", "Password"];
+const STEP_LABELS = ["Phone", "Email", "Password", "OTP"];
 
 export default function SignupFlow({
   step,
@@ -23,6 +25,8 @@ export default function SignupFlow({
   setEmail,
   resendIn,
   setResendIn,
+  mock,
+  setMock,
 }: {
   step: Step;
   setStep: (s: Step) => void;
@@ -32,6 +36,8 @@ export default function SignupFlow({
   setEmail: (v: string) => void;
   resendIn: number;
   setResendIn: (v: number | ((p: number) => number)) => void;
+  mock: boolean;
+  setMock: (v: boolean) => void;
 }) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
@@ -39,6 +45,7 @@ export default function SignupFlow({
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const router = useRouter();
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -47,6 +54,10 @@ export default function SignupFlow({
     const t = setTimeout(() => setResendIn((v: number) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [resendIn, setResendIn]);
+
+  function phoneE164() {
+    return `+234${phone.replace(/\D/g, "")}`;
+  }
 
   function submitPhone() {
     if (phone.replace(/\D/g, "").length < 10) {
@@ -63,22 +74,10 @@ export default function SignupFlow({
       return;
     }
     setError("");
-    setOtp(["", "", "", "", "", ""]);
-    setResendIn(40);
     setStep(3);
-    setTimeout(() => otpRefs.current[0]?.focus(), 50);
   }
 
-  function submitOtp() {
-    if (otp.join("").length < 6) {
-      setError("Enter the 6-digit code sent to your email.");
-      return;
-    }
-    setError("");
-    setStep(4);
-  }
-
-  function submitPassword() {
+  async function submitPassword() {
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -88,7 +87,76 @@ export default function SignupFlow({
       return;
     }
     setError("");
-    setDone(true);
+    setBusy(true);
+    try {
+      // Backend order: signup creates the user AND sends the OTP.
+      await api.signup({
+        email: email.trim(),
+        phone_number: phoneE164(),
+        password,
+      });
+      setMock(false);
+      setOtp(["", "", "", "", "", ""]);
+      setResendIn(40);
+      setStep(4);
+      setTimeout(() => otpRefs.current[0]?.focus(), 50);
+    } catch (e) {
+      if (e instanceof ApiUnreachable) {
+        // Backend down: continue the demo flow offline.
+        setMock(true);
+        setOtp(["", "", "", "", "", ""]);
+        setResendIn(40);
+        setStep(4);
+        setTimeout(() => otpRefs.current[0]?.focus(), 50);
+      } else if (
+        e instanceof Error &&
+        e.message.toLowerCase().includes("already registered")
+      ) {
+        // Account exists (e.g. unverified): send a fresh code and verify it.
+        try {
+          await api.otpRequest(email.trim());
+        } catch {
+          // Request failures surface on verify/resend instead.
+        }
+        setMock(false);
+        setOtp(["", "", "", "", "", ""]);
+        setResendIn(40);
+        setStep(4);
+        setTimeout(() => otpRefs.current[0]?.focus(), 50);
+      } else {
+        setError(e instanceof Error ? e.message : "Signup failed.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitOtp() {
+    const code = otp.join("");
+    if (code.length < 6) {
+      setError("Enter the 6-digit code sent to your email.");
+      return;
+    }
+    setError("");
+    if (mock) {
+      setDone(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      const tokens = await api.otpVerify(email.trim(), code);
+      saveTokens({ access: tokens.access, refresh: tokens.refresh });
+      setDone(true);
+    } catch (e) {
+      if (e instanceof ApiUnreachable) {
+        setMock(true);
+        setDone(true);
+      } else {
+        setError(e instanceof Error ? e.message : "Verification failed.");
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (done) {
@@ -126,15 +194,20 @@ export default function SignupFlow({
         <span className="text-[22px] font-bold tracking-tight text-primary">
           {step === 1 && "Commuter Verification"}
           {step === 2 && "Add your email"}
-          {step === 3 && "Check your email"}
-          {step === 4 && "Set a password"}
+          {step === 3 && "Set a password"}
+          {step === 4 && "Check your email"}
         </span>
         <span className="text-[14px] leading-relaxed text-on-surface-variant">
           {step === 1 && "Enter your active mobile line to start signup."}
           {step === 2 && "We send the OTP to this email address."}
-          {step === 3 && `Enter the 6-digit code sent to ${email || "your email"}.`}
-          {step === 4 && "Secure your account with a password."}
+          {step === 3 && "Secure your account with a password."}
+          {step === 4 && `Enter the 6-digit code sent to ${email || "your email"}.`}
         </span>
+        {mock && step >= 3 && (
+          <span className="text-[13px] font-medium text-heat-amber">
+            Demo mode — backend offline, continuing without live verification.
+          </span>
+        )}
       </div>
 
       {step === 1 && (
@@ -213,7 +286,7 @@ export default function SignupFlow({
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="flex flex-col gap-3">
           <div>
             <span className="text-[20px] font-semibold text-primary block">
@@ -311,7 +384,7 @@ export default function SignupFlow({
         </div>
       )}
 
-      {step === 4 && (
+      {step === 3 && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
             <label
@@ -387,19 +460,22 @@ export default function SignupFlow({
           )}
           <button
             type="button"
+            disabled={busy}
             onClick={() => {
               if (step === 1) submitPhone();
               else if (step === 2) submitEmail();
-              else if (step === 3) submitOtp();
-              else submitPassword();
+              else if (step === 3) submitPassword();
+              else submitOtp();
             }}
-            className="flex-1 h-14 rounded-xl bg-secondary text-on-secondary text-[16px] font-semibold hover:bg-secondary-container transition-colors flex items-center justify-center gap-2"
+            className="flex-1 h-14 rounded-xl bg-secondary text-on-secondary text-[16px] font-semibold hover:bg-secondary-container transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
           >
             <span>
-              {step === 1 && "Send code"}
-              {step === 2 && "Continue"}
-              {step === 3 && "Verify code"}
-              {step === 4 && "Create account"}
+              {busy && step === 3 && "Creating account…"}
+              {busy && step === 4 && "Verifying…"}
+              {!busy && step === 1 && "Continue"}
+              {!busy && step === 2 && "Continue"}
+              {!busy && step === 3 && "Create account"}
+              {!busy && step === 4 && "Verify code"}
             </span>
             <span className="material-symbols-outlined text-[18px]">
               arrow_forward
@@ -416,12 +492,12 @@ export default function SignupFlow({
         <span className="text-[13px] text-on-surface-variant">
           Having issues?
         </span>
-        <a
-          href="#dispatch"
+        <Link
+          href="/#faq"
           className="text-[13px] text-secondary font-semibold hover:underline"
         >
           Contact Terminal Dispatch
-        </a>
+        </Link>
       </div>
 
       <span className="hidden">{STEP_LABELS.join(",")}</span>

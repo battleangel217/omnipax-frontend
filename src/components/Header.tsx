@@ -36,10 +36,10 @@ export default function Header() {
 
         <div className="flex items-center gap-2">
           <Link
-            href="/driver"
+            href="/login"
             className="hidden sm:inline-flex h-12 items-center px-5 text-[15px] font-semibold text-on-surface-variant hover:text-on-surface transition-colors"
           >
-            Driver login
+            Log in
           </Link>
           <Link
             href="/signup"

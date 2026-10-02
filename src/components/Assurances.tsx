@@ -20,7 +20,7 @@ const NEVERS = [
 const FAQS = [
   {
     q: "Does it cost anything?",
-    a: "Starting is free for commuters and drivers. Standard SMS rates apply for verification codes only.",
+    a: "Starting is free for commuters and drivers. Verification codes arrive by email — no airtime needed.",
   },
   {
     q: "Do I need to install an app?",

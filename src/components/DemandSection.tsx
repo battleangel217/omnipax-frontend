@@ -33,37 +33,33 @@ export default function DemandSection() {
         <div className="lg:col-span-5">
           <div className="rounded-[2rem] border border-line bg-surface-container-lowest p-6 md:p-8">
             <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              Plaza right now
+              Corridors covered
             </p>
-            <div className="mt-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[15px] font-medium text-on-surface">
-                  Ibom Plaza Axis
-                </span>
-                <span className="text-[15px] font-bold text-primary">
-                  14 waiting
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-surface-container-low">
-                <div className="h-full w-2/3 rounded-full bg-secondary" />
-              </div>
-              <div className="flex items-center justify-between border-t border-line pt-4">
-                <span className="text-[15px] font-medium text-on-surface">
-                  Itam Market Hub
-                </span>
-                <span className="rounded-full bg-error-container px-3 py-1 text-[13px] font-bold text-on-error-container">
-                  High surge
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-t border-line pt-4">
-                <span className="text-[15px] font-medium text-on-surface">
-                  Average wait
-                </span>
-                <span className="text-[15px] font-bold text-primary">
-                  2–4 mins
-                </span>
-              </div>
+            <div className="mt-5 space-y-1">
+              {[
+                { name: "Oron Road", fare: "₦150 – ₦250" },
+                { name: "Ikot Ekpene Road", fare: "Regulated" },
+                { name: "Itam Market Hub", fare: "Regulated" },
+                { name: "Aka Road", fare: "Regulated" },
+                { name: "Abak Road", fare: "Regulated" },
+              ].map((c) => (
+                <div
+                  key={c.name}
+                  className="flex items-center justify-between border-t border-line py-3 first:border-t-0 first:pt-0"
+                >
+                  <span className="text-[15px] font-medium text-on-surface">
+                    {c.name}
+                  </span>
+                  <span className="rounded-full bg-surface-container px-3 py-1 text-[13px] font-semibold text-on-surface-variant">
+                    {c.fare}
+                  </span>
+                </div>
+              ))}
             </div>
+            <p className="mt-4 text-[13px] leading-relaxed text-on-surface-variant">
+              Every corridor runs on the state fare scale. What you see at
+              the pin is what you pay.
+            </p>
           </div>
         </div>
       </div>

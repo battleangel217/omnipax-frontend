@@ -4,7 +4,6 @@ import LiveDemo from "@/components/LiveDemo";
 import HowItWorks from "@/components/HowItWorks";
 import DemandSection from "@/components/DemandSection";
 import DriverCTA from "@/components/DriverCTA";
-import Stories from "@/components/Stories";
 import Assurances from "@/components/Assurances";
 import FinalCTA from "@/components/FinalCTA";
 import Footer from "@/components/Footer";
@@ -19,7 +18,6 @@ export default function Home() {
         <HowItWorks />
         <DemandSection />
         <DriverCTA />
-        <Stories />
         <Assurances />
         <FinalCTA />
       </main>

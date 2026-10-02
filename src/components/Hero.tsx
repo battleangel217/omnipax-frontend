@@ -32,7 +32,7 @@ export default function Hero() {
           </Link>
         </div>
         <p className="mt-6 text-[13px] text-on-surface-variant">
-          SMS login · Regulated fares · Works on 2G/3G
+          Email OTP login · Regulated fares · Works on 2G/3G
         </p>
       </div>
     </section>

@@ -37,23 +37,42 @@ export default function DriverCTA() {
         <div className="relative lg:col-span-5">
           <div className="rounded-[2rem] bg-primary p-6 md:p-8">
             <p className="text-xs font-bold uppercase tracking-widest text-on-primary-container">
-              Tonight&apos;s close · Oron corridor
+              How drivers use it
             </p>
-            <p className="mt-3 text-[40px] font-extrabold tracking-tight">
-              ₦48,200
-            </p>
-            <p className="mt-1 text-[14px] text-on-primary-container">
-              14 trips · 9 queues cleared · best hour 12pm
-            </p>
-            <div className="mt-6 space-y-3 border-t border-on-primary/10 pt-6 text-[14px]">
-              <div className="flex justify-between">
-                <span className="text-on-primary-container">Queue pickups</span>
-                <strong>11</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-on-primary-container">Empty miles</span>
-                <strong>−62%</strong>
-              </div>
+            <div className="mt-5 space-y-5">
+              {[
+                {
+                  icon: "groups",
+                  title: "See the queue before you move",
+                  body: "Live commuter counts per corridor, refreshed in real time.",
+                },
+                {
+                  icon: "payments",
+                  title: "Fixed state fares",
+                  body: "No haggling. The regulated span is shown on every trip.",
+                },
+                {
+                  icon: "verified",
+                  title: "Ministry-verified corridors",
+                  body: "Only approved routes appear. Closed roads stay closed.",
+                },
+              ].map((f) => (
+                <div key={f.title} className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container">
+                    <span className="material-symbols-outlined text-[20px] text-on-primary">
+                      {f.icon}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[16px] font-semibold text-on-primary">
+                      {f.title}
+                    </p>
+                    <p className="mt-0.5 text-[14px] leading-relaxed text-on-primary-container">
+                      {f.body}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

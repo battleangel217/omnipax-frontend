@@ -1,27 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SignupFlow from "@/components/SignupFlow";
 
 type Step = 1 | 2 | 3 | 4;
 
-const STEPS = ["Phone check", "Email", "Verification code", "Password"];
+const STEPS = ["Phone check", "Email", "Password", "Verification code"];
 
 const TITLES: Record<Step, string> = {
   1: "What's your phone number?",
   2: "What's your email address?",
-  3: "Enter the 6-digit code",
-  4: "Create your password",
+  3: "Create your password",
+  4: "Enter the 6-digit code",
 };
 
 const SUBS: Record<Step, string> = {
   1: "We send one code to confirm it is you. This keeps fake pins off the map.",
-  2: "We send the one-time code to this email address.",
-  3: "Type the code below. It expires after 5 minutes.",
-  4: "Secure your account. Then pin your waiting spot.",
+  2: "Your account is created on the next step.",
+  3: "Secure your account. Then verify the code we email you.",
+  4: "Type the code below. It expires after 5 minutes.",
 };
 
 function Stepper({ step }: { step: Step }) {
@@ -63,11 +65,14 @@ function Stepper({ step }: { step: Step }) {
   );
 }
 
-export default function SignupPageClient() {
-  const [step, setStep] = useState<Step>(1);
+function SignupPageInner() {
+  const searchParams = useSearchParams();
+  const verifyEmail = searchParams.get("verify") ?? "";
+  const [step, setStep] = useState<Step>(verifyEmail ? 4 : 1);
   const [phone, setPhone] = useState("803 492 8190");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(verifyEmail);
   const [resendIn, setResendIn] = useState(0);
+  const [mock, setMock] = useState(false);
 
   return (
     <div className="w-full bg-surface min-h-screen">
@@ -82,7 +87,7 @@ export default function SignupPageClient() {
               {TITLES[step]}
             </h1>
             <p className="mt-3 text-[16px] leading-relaxed text-on-surface-variant">
-              {step === 3 && email ? (
+              {step === 4 && email ? (
                 <>
                   Sent to <strong className="font-semibold text-on-surface">{email}</strong>{" "}
                   ·{" "}
@@ -115,11 +120,13 @@ export default function SignupPageClient() {
                 setEmail={setEmail}
                 resendIn={resendIn}
                 setResendIn={setResendIn}
+                mock={mock}
+                setMock={setMock}
               />
             </div>
 
             <div className="flex flex-col gap-6 lg:col-span-6">
-              {step === 3 ? (
+              {step === 4 ? (
                 <>
                   <div className="rounded-[2rem] bg-surface-container-lowest p-6 md:p-8">
                     <div className="flex items-start gap-3">
@@ -151,7 +158,14 @@ export default function SignupPageClient() {
                         <button
                           type="button"
                           disabled={resendIn > 0}
-                          onClick={() => setResendIn(40)}
+                          onClick={() => {
+                            setResendIn(40);
+                            if (!mock && email) {
+                              import("@/lib/api").then(({ api }) =>
+                                api.otpRequest(email).catch(() => {})
+                              );
+                            }
+                          }}
                           className={`text-[13px] font-semibold ${
                             resendIn > 0
                               ? "cursor-not-allowed text-outline"
@@ -254,9 +268,27 @@ export default function SignupPageClient() {
               )}
             </div>
           </div>
+
+          <p className="mt-10 text-center text-[14px] text-on-surface-variant">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-semibold text-secondary hover:underline"
+            >
+              Log in
+            </Link>
+          </p>
         </div>
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function SignupPageClient() {
+  return (
+    <Suspense>
+      <SignupPageInner />
+    </Suspense>
   );
 }

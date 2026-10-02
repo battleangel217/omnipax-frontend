@@ -49,7 +49,7 @@ export default function AppHeader({ active }: { active: AppNavKey }) {
             </Link>
           ))}
         </nav>
-        <Link href="/driver/settings" aria-label="Settings">
+        <Link href="/login" aria-label="Log in">
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
             <span className="material-symbols-outlined text-on-primary text-[18px]">
               person

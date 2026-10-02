@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { ApiUnreachable, api } from "@/lib/api";
 import type { ClosureSegment } from "@/components/AdminLiveMap";
 import {
   ABAK_JUNCTION,
@@ -125,6 +126,24 @@ export default function AdminClient() {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCorridor, setNewCorridor] = useState(CORRIDOR_LINES[0].name);
+  const [backend, setBackend] = useState<"checking" | "ok" | "degraded" | "offline">(
+    "checking"
+  );
+
+  useEffect(() => {
+    let live = true;
+    api
+      .health()
+      .then((h) => {
+        if (live) setBackend(h.status === "ok" ? "ok" : "degraded");
+      })
+      .catch((e) => {
+        if (live) setBackend(e instanceof ApiUnreachable ? "offline" : "degraded");
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const counts = useMemo(
     () => ({
@@ -237,13 +256,25 @@ export default function AdminClient() {
         <div className="flex flex-col gap-4 bg-primary-container p-4">
           <div className="flex items-center justify-between rounded-lg bg-surface-container-highest/10 px-3 py-1.5">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-tertiary-fixed-dim" />
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  backend === "ok"
+                    ? "animate-pulse bg-tertiary-fixed-dim"
+                    : backend === "checking"
+                      ? "animate-pulse bg-outline-variant"
+                      : "bg-error"
+                }`}
+              />
               <span className="text-[13px] text-on-primary-container">
-                Telemetry Feed
+                Backend{" "}
+                {process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"}
               </span>
             </div>
             <span className="text-[13px] font-medium text-on-primary">
-              99.8%
+              {backend === "checking" && "…"}
+              {backend === "ok" && "ok"}
+              {backend === "degraded" && "degraded"}
+              {backend === "offline" && "offline"}
             </span>
           </div>
           <div className="flex items-center gap-3 pt-1">
