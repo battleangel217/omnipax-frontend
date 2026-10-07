@@ -168,7 +168,7 @@ export default function PassengerLiveMap({
   const [geoBlocked, setGeoBlocked] = useState(false);
   const [showLines, setShowLines] = useState(true);
 
-  const { junctions } = useGeoFeeds();
+  const { junctions, zones } = useGeoFeeds();
   const heatSpots = useMemo(() => {
     const lower = (s: string) => s.toLowerCase();
     const find = (kws: string[]) =>
@@ -247,12 +247,27 @@ export default function PassengerLiveMap({
           );
         })}
 
-        {showLines && (
-          <Polyline
-            positions={[IBOM_PLAZA, AKA_SOUTH, TROPICANA]}
-            pathOptions={{ color: "#1D5DFE", weight: 5 }}
+        {zones.map((z) => (
+          <Circle
+            key={z.id}
+            center={z.center}
+            radius={z.radius_m}
+            pathOptions={{ color: "#EF4444", weight: 1, fillColor: "#EF4444", fillOpacity: 0.2, dashArray: "4 4" }}
           />
-        )}
+        ))}
+
+        {showLines &&
+          Array.from(new Set(junctions.map((j) => j.corridor))).map((corridorId) => {
+            const corridorJunctions = junctions.filter((j) => j.corridor === corridorId);
+            if (corridorJunctions.length < 2) return null;
+            return (
+              <Polyline
+                key={corridorId}
+                positions={corridorJunctions.map((j) => j.pos)}
+                pathOptions={{ color: "#1D5DFE", weight: 5 }}
+              />
+            );
+          })}
 
         {/* Your live position + heat (real GPS) */}
         {user && (

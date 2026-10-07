@@ -11,16 +11,12 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import {
-  AKA_SOUTH,
   FixSize,
-  IBOM_PLAZA,
-  ITAM,
-  ORON_RD,
   OsmTiles,
-  TROPICANA,
   UYO,
   type LatLng,
 } from "./map-shared";
+import { useGeoFeeds } from "@/hooks/useGeo";
 
 function driverIcon(): L.DivIcon {
   return L.divIcon({
@@ -73,6 +69,7 @@ export default function DriverLiveMap({
   pins?: Array<{ id: string; pos: LatLng; label: string }>;
   quiet?: boolean;
 }) {
+  const { junctions, zones } = useGeoFeeds();
   const anchor: LatLng = driverPos ?? UYO;
 
   return (
@@ -88,34 +85,55 @@ export default function DriverLiveMap({
       >
         <FixSize />
         <OsmTiles />
-        <FlySignal signal={navSignal} target={IBOM_PLAZA} />
+        {/* Note: In a fully dynamic app, navSignal target could be set dynamically instead of hardcoded */}
+        <FlySignal signal={navSignal} target={UYO} />
         {flyTo && <FlyToTarget target={flyTo} />}
 
-        {/* Passenger demand heat — aggregate only (muted in quiet mode) */}
-        {quiet ? (
-          <>
-            <Circle center={IBOM_PLAZA} radius={320} pathOptions={{ color: "#F5A524", weight: 1, fillColor: "#F5A524", fillOpacity: 0.18 }} />
-            <Circle center={ITAM} radius={380} pathOptions={{ color: "#F5A524", weight: 1, fillColor: "#F5A524", fillOpacity: 0.14 }} />
-            <Circle center={TROPICANA} radius={300} pathOptions={{ color: "#F5A524", weight: 1, fillColor: "#F5A524", fillOpacity: 0.12 }} />
-          </>
-        ) : (
-          <>
-            <Circle center={IBOM_PLAZA} radius={320} pathOptions={{ color: "#DC2626", weight: 1, fillColor: "#DC2626", fillOpacity: 0.35 }} />
-            <Circle center={IBOM_PLAZA} radius={150} pathOptions={{ color: "#DC2626", weight: 0, fillColor: "#DC2626", fillOpacity: 0.45 }} />
-            <Circle center={ITAM} radius={380} pathOptions={{ color: "#E5322D", weight: 1, fillColor: "#E5322D", fillOpacity: 0.28 }} />
-            <Circle center={TROPICANA} radius={300} pathOptions={{ color: "#F5A524", weight: 1, fillColor: "#F5A524", fillOpacity: 0.28 }} />
-          </>
-        )}
+        {/* Dynamic Restricted Zones */}
+        {zones.map((z) => (
+          <Circle
+            key={`zone-${z.id}`}
+            center={z.center}
+            radius={z.radius_m}
+            pathOptions={{ color: "#EF4444", weight: 2, dashArray: "10 8", fillColor: "#EF4444", fillOpacity: 0.1 }}
+          />
+        ))}
+
+        {/* Dynamic Passenger demand heat from junctions */}
+        {junctions.map((j, index) => {
+          const isHighSurge = index === 0 || index === 1;
+          const outerColor = isHighSurge ? "#DC2626" : "#F5A524";
+          const innerColor = isHighSurge ? "#DC2626" : "#E5322D";
+          
+          if (quiet) {
+            return (
+              <Circle key={`heat-${j.id}`} center={j.pos} radius={300} pathOptions={{ color: "#F5A524", weight: 1, fillColor: "#F5A524", fillOpacity: 0.12 }} />
+            );
+          }
+          
+          return (
+            <div key={`heat-${j.id}`}>
+              <Circle center={j.pos} radius={320} pathOptions={{ color: outerColor, weight: 1, fillColor: outerColor, fillOpacity: isHighSurge ? 0.35 : 0.28 }} />
+              {isHighSurge && <Circle center={j.pos} radius={150} pathOptions={{ color: innerColor, weight: 0, fillColor: innerColor, fillOpacity: 0.45 }} />}
+            </div>
+          );
+        })}
+
         {radarOn && (
           <Circle center={[anchor[0] + 0.012, anchor[1] + 0.014]} radius={420} pathOptions={{ color: "#D97706", weight: 1, fillColor: "#D97706", fillOpacity: 0.25 }} />
         )}
 
-        {/* Oron Road — approved corridor */}
-        <Polyline positions={[IBOM_PLAZA, ORON_RD, TROPICANA]} pathOptions={{ color: "#FFFFFF", weight: 9 }} />
-        <Polyline positions={[IBOM_PLAZA, ORON_RD, TROPICANA]} pathOptions={{ color: "#1D5DFE", weight: 6 }} />
-
-        {/* Aka Road — closed */}
-        <Polyline positions={[IBOM_PLAZA, AKA_SOUTH]} pathOptions={{ color: "#EF4444", weight: 6, dashArray: "10 8" }} />
+        {/* Dynamic Corridors */}
+        {Array.from(new Set(junctions.map((j) => j.corridor))).map((corridorId) => {
+          const corridorJunctions = junctions.filter((j) => j.corridor === corridorId);
+          if (corridorJunctions.length < 2) return null;
+          return (
+            <div key={`corridor-${corridorId}`}>
+              <Polyline positions={corridorJunctions.map((j) => j.pos)} pathOptions={{ color: "#FFFFFF", weight: 9 }} />
+              <Polyline positions={corridorJunctions.map((j) => j.pos)} pathOptions={{ color: "#1D5DFE", weight: 6 }} />
+            </div>
+          );
+        })}
 
         {driverPos && (
           <Marker position={driverPos} icon={driverIcon()} zIndexOffset={100}>

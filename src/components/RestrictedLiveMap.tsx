@@ -11,16 +11,11 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import {
-  ABAK_JUNCTION,
-  AKA_SOUTH,
   FixSize,
-  IBOM_PLAZA,
-  IKOT_EKPENE_RD,
-  ORON_RD,
   OsmTiles,
-  TROPICANA,
   type LatLng,
 } from "./map-shared";
+import { useGeoFeeds } from "@/hooks/useGeo";
 
 export type AltSpot = { name: string; pos: LatLng };
 
@@ -112,6 +107,8 @@ export default function RestrictedLiveMap({
   flyTarget: { pos: LatLng; nonce: number } | null;
   zones: Array<{ id: string; name: string; center: LatLng; radius_m: number }>;
 }) {
+  const { junctions } = useGeoFeeds();
+
   return (
     <div className="relative h-full w-full">
       <MapContainer
@@ -127,10 +124,18 @@ export default function RestrictedLiveMap({
         <OsmTiles />
         <FlyTo target={flyTarget} />
 
-        {/* Open corridors */}
-        <Polyline positions={[IBOM_PLAZA, IKOT_EKPENE_RD]} pathOptions={{ color: "#1D5DFE", weight: 5, dashArray: "12 6" }} />
-        <Polyline positions={[IBOM_PLAZA, ORON_RD, TROPICANA]} pathOptions={{ color: "#1D5DFE", weight: 5, dashArray: "12 6" }} />
-        <Polyline positions={[IBOM_PLAZA, ABAK_JUNCTION]} pathOptions={{ color: "#1D5DFE", weight: 6 }} />
+        {/* Dynamic Corridors */}
+        {Array.from(new Set(junctions.map((j) => j.corridor))).map((corridorId) => {
+          const corridorJunctions = junctions.filter((j) => j.corridor === corridorId);
+          if (corridorJunctions.length < 2) return null;
+          return (
+            <Polyline
+              key={corridorId}
+              positions={corridorJunctions.map((j) => j.pos)}
+              pathOptions={{ color: "#1D5DFE", weight: 5, dashArray: "12 6" }}
+            />
+          );
+        })}
 
         {/* Live restricted zones from the backend feed */}
         {zones.map((z) => (
@@ -150,11 +155,7 @@ export default function RestrictedLiveMap({
           </Circle>
         ))}
 
-        {/* Aka Road — closed */}
-        <Polyline positions={[IBOM_PLAZA, AKA_SOUTH]} pathOptions={{ color: "#FFDAD6", weight: 12 }} />
-        <Polyline positions={[IBOM_PLAZA, AKA_SOUTH]} pathOptions={{ color: "#BA1A1A", weight: 6, dashArray: "10 8" }} />
-
-        {/* Walking transfer: restricted pin → recommended Abak node */}
+        {/* Walking transfer: restricted pin → recommended Alt spot */}
         <Polyline
           positions={[RESTRICTED_PIN, selected.pos]}
           pathOptions={{ color: "#0B1F33", weight: 3, dashArray: "6 6" }}
@@ -171,17 +172,6 @@ export default function RestrictedLiveMap({
         <Marker position={selected.pos} icon={pinIcon("recommended")} zIndexOffset={60}>
           <Tooltip direction="top" offset={[0, -20]} permanent>
             {selected.name} · OPEN
-          </Tooltip>
-        </Marker>
-
-        <Marker position={IKOT_EKPENE_RD} icon={pinIcon("alt")}>
-          <Tooltip direction="top" offset={[0, -10]}>
-            Ikot Ekpene Road · OPEN
-          </Tooltip>
-        </Marker>
-        <Marker position={ORON_RD} icon={pinIcon("alt")}>
-          <Tooltip direction="top" offset={[0, -10]}>
-            Oron Road · OPEN
           </Tooltip>
         </Marker>
 
