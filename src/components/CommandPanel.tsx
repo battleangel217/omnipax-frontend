@@ -58,37 +58,7 @@ export default function CommandPanel({
   return (
     <aside className="relative z-20 flex h-full w-full flex-col justify-between overflow-y-auto border-r border-outline-variant/30 bg-surface-container-lowest shadow-xl lg:max-w-[440px]">
       <div className="flex flex-col gap-6 p-6">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between text-[13px] text-on-surface-variant">
-            <span className="font-medium tracking-wide">
-              Transit Access Workflow
-            </span>
-            <span className="font-semibold text-secondary">Step 3 of 3</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5 pt-1">
-            <div className="h-1.5 rounded-full bg-secondary" />
-            <div className="h-1.5 rounded-full bg-secondary" />
-            <div className="h-1.5 rounded-full bg-secondary-container animate-pulse" />
-          </div>
-          <div className="flex items-center justify-between pt-0.5 text-[11px] text-on-surface-variant">
-            <span className="flex items-center gap-1 font-medium text-on-tertiary-container">
-              <span className="material-symbols-outlined text-[14px]">
-                check_circle
-              </span>{" "}
-              Phone
-            </span>
-            <span className="flex items-center gap-1 font-medium text-on-tertiary-container">
-              <span className="material-symbols-outlined text-[14px]">
-                check_circle
-              </span>{" "}
-              Verified
-            </span>
-            <span className="flex items-center gap-1 font-bold text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-secondary" />{" "}
-              Destination
-            </span>
-          </div>
-        </div>
+
 
         <div className="flex flex-col gap-1">
           <label

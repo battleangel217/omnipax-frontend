@@ -7,6 +7,12 @@ export const metadata: Metadata = {
     "Aka Road is closed to transit. Move your pin to the nearest open corridor.",
 };
 
+import RequireAuth from "@/components/RequireAuth";
+
 export default function RestrictedPage() {
-  return <RestrictedClient />;
+  return (
+    <RequireAuth>
+      <RestrictedClient />
+    </RequireAuth>
+  );
 }

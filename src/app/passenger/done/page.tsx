@@ -7,6 +7,12 @@ export const metadata: Metadata = {
     "Your pin is cleared. Receipt, corridor recap, and map feedback.",
 };
 
+import RequireAuth from "@/components/RequireAuth";
+
 export default function DonePage() {
-  return <DoneClient />;
+  return (
+    <RequireAuth>
+      <DoneClient />
+    </RequireAuth>
+  );
 }

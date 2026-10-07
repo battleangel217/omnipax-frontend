@@ -23,17 +23,7 @@ export default function RequireAuth({
     void Promise.resolve().then(() => {
       if (!live) return;
       if (!loadTokens()) {
-        // No session: only force login when the backend is actually up.
-        api
-          .health()
-          .then(() => {
-            if (live) router.replace(`/login?next=${pathname}`);
-          })
-          .catch((e) => {
-            if (!live) return;
-            if (e instanceof ApiUnreachable) setOk(true); // offline demo
-            else router.replace(`/login?next=${pathname}`);
-          });
+        router.replace(`/login?next=${pathname}`);
         return;
       }
       if (roles && roles.length > 0) {

@@ -7,6 +7,12 @@ export const metadata: Metadata = {
     "Boost your pickup pin visibility with an optional priority tip for drivers.",
 };
 
+import RequireAuth from "@/components/RequireAuth";
+
 export default function TipPage() {
-  return <TipPageClient />;
+  return (
+    <RequireAuth>
+      <TipPageClient />
+    </RequireAuth>
+  );
 }

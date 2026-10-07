@@ -7,6 +7,12 @@ export const metadata: Metadata = {
     "Track your gold priority beacon, responding drivers, and pin countdown.",
 };
 
+import RequireAuth from "@/components/RequireAuth";
+
 export default function PinPage() {
-  return <PinTrackClient />;
+  return (
+    <RequireAuth>
+      <PinTrackClient />
+    </RequireAuth>
+  );
 }
