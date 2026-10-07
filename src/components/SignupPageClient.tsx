@@ -20,10 +20,10 @@ const TITLES: Record<Step, string> = {
 };
 
 const SUBS: Record<Step, string> = {
-  1: "We send one code to confirm it is you. This keeps fake pins off the map.",
-  2: "Your account is created on the next step.",
-  3: "Secure your account. Then verify the code we email you.",
-  4: "Type the code below. It expires after 5 minutes.",
+  1: "One code proves it is you. No fake pins.",
+  2: "Next step creates your account.",
+  3: "Set a password. Then enter the code we email you.",
+  4: "Enter the code. It expires in 5 minutes.",
 };
 
 function Stepper({ step }: { step: Step }) {
@@ -73,6 +73,10 @@ function SignupPageInner() {
   const [email, setEmail] = useState(verifyEmail);
   const [resendIn, setResendIn] = useState(0);
   const [mock, setMock] = useState(false);
+  const nextPath =
+    searchParams.get("next")?.startsWith("/") === true
+      ? (searchParams.get("next") as string)
+      : "/passenger";
 
   return (
     <div className="w-full bg-surface min-h-screen">
@@ -122,6 +126,7 @@ function SignupPageInner() {
                 setResendIn={setResendIn}
                 mock={mock}
                 setMock={setMock}
+                nextPath={nextPath}
               />
             </div>
 
@@ -191,7 +196,7 @@ function SignupPageInner() {
                       {
                         icon: "network_cell",
                         title: "Works on 2G/3G",
-                        body: "Optimized for low-bandwidth base stations.",
+                        body: "Made for slow networks.",
                       },
                       {
                         icon: "toll",

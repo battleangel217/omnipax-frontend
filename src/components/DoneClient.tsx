@@ -55,8 +55,7 @@ export default function DoneClient() {
                     Glad you found a ride
                   </h1>
                   <p className="mb-6 max-w-md text-[16px] text-on-surface-variant">
-                    Your pin has been removed. Thanks for keeping the map
-                    accurate.
+                    Your pin is removed. Thank you.
                   </p>
 
                   <div className="mb-6 flex w-full flex-col gap-4 rounded-xl bg-surface-container-low p-6 text-left">
@@ -127,7 +126,7 @@ export default function DoneClient() {
                         Was the map helpful?
                       </span>
                       <span className="text-[13px] text-on-surface-variant">
-                        Instant feedback calibrates node density
+                        Your vote improves the map
                       </span>
                     </div>
                     {feedback === null ? (
@@ -258,9 +257,7 @@ export default function DoneClient() {
                       info
                     </span>
                     <p className="text-[13px] text-on-surface-variant">
-                      Your feedback directly updates vehicle pacing models and
-                      helps calibrate live wait times for other commuters
-                      waiting at Ibom Plaza Central Circus.
+                      Your feedback gives others better wait times.
                     </p>
                   </div>
                 </div>

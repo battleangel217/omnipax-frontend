@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { LatLng } from "./map-shared";
+import type { LatLng } from "./map-data";
 
 const LiveMap = dynamic(() => import("./DriverLiveMap"), {
   ssr: false,

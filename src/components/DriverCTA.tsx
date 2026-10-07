@@ -16,8 +16,7 @@ export default function DriverCTA() {
             Drive empty miles never again.
           </h2>
           <p className="mt-4 max-w-xl text-lg leading-relaxed text-on-primary-container">
-            Join the operators turning slow days into full loads — verified
-            corridors, live queues, and regulated fares in one place.
+            See live queues. Pick fixed-fare trips. No empty cruising.
           </p>
           <div className="mt-8">
             <Link
@@ -44,17 +43,17 @@ export default function DriverCTA() {
                 {
                   icon: "groups",
                   title: "See the queue before you move",
-                  body: "Live commuter counts per corridor, refreshed in real time.",
+                  body: "Live counts per road.",
                 },
                 {
                   icon: "payments",
                   title: "Fixed state fares",
-                  body: "No haggling. The regulated span is shown on every trip.",
+                  body: "The fare is shown upfront. No haggling.",
                 },
                 {
                   icon: "verified",
                   title: "Ministry-verified corridors",
-                  body: "Only approved routes appear. Closed roads stay closed.",
+                  body: "Only approved routes. Closed roads stay closed.",
                 },
               ].map((f) => (
                 <div key={f.title} className="flex items-start gap-4">

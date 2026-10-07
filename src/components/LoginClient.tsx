@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { ApiUnreachable, api, saveTokens } from "@/lib/api";
+import { ApiUnreachable, api, saveTokens, setRole } from "@/lib/api";
 
 function formatPhone(digits: string) {
   const cleaned = digits.replace(/\D/g, "").slice(0, 10);
@@ -16,6 +17,11 @@ function formatPhone(digits: string) {
 
 export default function LoginClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath =
+    searchParams.get("next")?.startsWith("/") === true
+      ? (searchParams.get("next") as string)
+      : null;
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -39,12 +45,22 @@ export default function LoginClient() {
         password
       );
       saveTokens(tokens);
-      // Role isn't in the JWT: a 200 from a driver-only endpoint means driver.
+      // Role isn't in the JWT: probe role-gated endpoints, most
+      // privileged first. Honors ?next= for explicit destinations.
+      const dest = nextPath;
+      try {
+        await api.corridors();
+        setRole("admin");
+        router.push(dest ?? "/admin");
+        return;
+      } catch {}
       try {
         await api.driverZones();
-        router.push("/driver");
+        setRole("driver");
+        router.push(dest ?? "/driver");
       } catch {
-        router.push("/passenger");
+        setRole("passenger");
+        router.push(dest ?? "/passenger");
       }
     } catch (e) {
       if (e instanceof ApiUnreachable) {
@@ -78,8 +94,24 @@ export default function LoginClient() {
             </p>
           </div>
 
-          <div className="mx-auto mt-10 max-w-md">
-            <div className="flex w-full flex-col gap-5 rounded-[2rem] bg-surface-container-lowest p-6 md:p-8">
+          <div className="mx-auto mt-10 grid max-w-5xl grid-cols-1 items-start gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-6">
+              <div className="flex w-full flex-col gap-5 rounded-[2rem] bg-surface-container-lowest p-6 md:p-8">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary-container">
+                    <span className="material-symbols-outlined text-[24px] text-on-secondary">
+                      login
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[20px] font-bold tracking-tight text-primary">
+                      Account login
+                    </p>
+                    <p className="text-[13px] text-on-surface-variant">
+                      One login for riders and drivers.
+                    </p>
+                  </div>
+                </div>
               <div className="flex flex-col gap-2">
                 <label
                   htmlFor="login-phone"
@@ -181,8 +213,87 @@ export default function LoginClient() {
                   Create account
                 </Link>
               </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-6 lg:col-span-6">
+              <div className="overflow-hidden rounded-[2rem] border border-line bg-surface-container-lowest">
+                <div className="flex items-center justify-between px-6 py-4">
+                  <span className="flex items-center gap-2 text-[14px] font-medium text-on-surface">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-on-tertiary-container opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-on-tertiary-container" />
+                    </span>
+                    Live Corridor Feed
+                  </span>
+                  <span className="text-[13px] text-on-surface-variant">
+                    Updated 10s ago
+                  </span>
+                </div>
+                <div className="relative h-48 w-full">
+                  <Image
+                    src="/plazamap.png"
+                    alt="Ibom Plaza corridor map"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                  />
+                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between rounded-xl bg-surface-container-lowest px-4 py-2">
+                    <span className="text-[13px] font-semibold text-primary">
+                      Ibom Plaza to Tropicana
+                    </span>
+                    <span className="text-[13px] font-medium text-secondary">
+                      18 Keke nearby
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex items-center gap-3 rounded-[2rem] bg-surface-container-lowest p-5">
+                  <span className="material-symbols-outlined text-[22px] text-secondary">
+                    person_pin_circle
+                  </span>
+                  <p className="text-[13px] leading-snug text-on-surface-variant">
+                    <strong className="font-semibold text-on-surface">
+                      Commuters
+                    </strong>{" "}
+                    land on corridors.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 rounded-[2rem] bg-surface-container-lowest p-5">
+                  <span className="material-symbols-outlined text-[22px] text-primary">
+                    electric_rickshaw
+                  </span>
+                  <p className="text-[13px] leading-snug text-on-surface-variant">
+                    <strong className="font-semibold text-on-surface">
+                      Drivers
+                    </strong>{" "}
+                    land on dispatch.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-[2rem] bg-surface-container-low p-6">
+                <span className="material-symbols-outlined text-[20px] text-primary">
+                  lock
+                </span>
+                <p className="text-[14px] leading-relaxed text-on-surface-variant">
+                  Sessions stay on this device. Log out anytime from Settings.
+                </p>
+              </div>
             </div>
           </div>
+
+          <p className="mt-10 text-center text-[14px] text-on-surface-variant">
+            Trouble logging in?{" "}
+            <Link
+              href="/signup"
+              className="font-semibold text-secondary hover:underline"
+            >
+              Recover via signup
+            </Link>
+          </p>
         </div>
       </main>
       <Footer />

@@ -19,13 +19,6 @@ import {
   type LatLng,
 } from "./map-shared";
 
-const DRIVERS = [
-  { label: "Keke UY-104", icon: "electric_rickshaw", color: "#0B1F33", dLat: 0.007, dLng: -0.009 },
-  { label: "Keke UY-882", icon: "electric_rickshaw", color: "#0B1F33", dLat: -0.006, dLng: 0.008 },
-  { label: "Mini-bus AK-41", icon: "directions_bus", color: "#0046D2", dLat: 0.004, dLng: 0.013 },
-  { label: "Keke UY-493", icon: "electric_rickshaw", color: "#0B1F33", dLat: -0.011, dLng: -0.004 },
-];
-
 function goldPin(): L.DivIcon {
   return L.divIcon({
     className: "",
@@ -39,15 +32,6 @@ function goldPin(): L.DivIcon {
   });
 }
 
-function driverBadge(label: string, icon: string, color: string): L.DivIcon {
-  return L.divIcon({
-    className: "",
-    iconSize: [120, 30],
-    iconAnchor: [60, 15],
-    html: `<div style="display:flex;align-items:center;gap:4px;background:#fff;padding:4px 8px;border-radius:9999px;box-shadow:0 1px 4px rgba(0,0,0,0.2);font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:600;color:#131C26;white-space:nowrap"><span style="font-family:'Material Symbols Outlined';font-size:16px;color:${color}">${icon}</span>${label}</div>`,
-  });
-}
-
 function Controls({ onRecenter }: { onRecenter: () => void }) {
   const map = useMap();
   return (
@@ -55,7 +39,7 @@ function Controls({ onRecenter }: { onRecenter: () => void }) {
       <div className="flex items-center gap-2 rounded-xl border border-outline-variant/40 bg-surface-container-lowest/95 px-3.5 py-2 shadow-sm backdrop-blur">
         <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-on-tertiary-container" />
         <span className="text-[13px] font-semibold text-primary">
-          9 drivers active along your corridor
+          Gold beacon live on your corridor
         </span>
       </div>
       <div className="flex overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-sm">
@@ -155,18 +139,6 @@ export default function TipLiveMap() {
             You are here · Ibom Plaza Circus
           </Tooltip>
         </Marker>
-
-        {DRIVERS.map((d) => (
-          <Marker
-            key={d.label}
-            position={[pin[0] + d.dLat, pin[1] + d.dLng]}
-            icon={driverBadge(d.label, d.icon, d.color)}
-          >
-            <Tooltip direction="top" offset={[0, -16]}>
-              {d.label}
-            </Tooltip>
-          </Marker>
-        ))}
 
         <Controls onRecenter={() => setCenter(pin)} />
       </MapContainer>

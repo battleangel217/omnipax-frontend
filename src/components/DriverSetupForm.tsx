@@ -2,23 +2,78 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ApiUnreachable, api, loadTokens, setRole } from "@/lib/api";
 
 type Vehicle = "keke" | "minibus";
 
+function pendingDriver(): {
+  vehicle?: Vehicle;
+  plate?: string;
+  permit?: string;
+} {
+  try {
+    const raw = localStorage.getItem("transitsight-pending-driver");
+    return raw ? (JSON.parse(raw) as object) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function DriverSetupForm() {
   const router = useRouter();
-  const [vehicle, setVehicle] = useState<Vehicle>("keke");
-  const [plate, setPlate] = useState("AKS 123 XY");
+  const [vehicle, setVehicle] = useState<Vehicle>(
+    () => pendingDriver().vehicle ?? "keke"
+  );
+  const [plate, setPlate] = useState(() => pendingDriver().plate ?? "AKS 123 XY");
+  const [permit, setPermit] = useState(() => pendingDriver().permit ?? "");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [showOffCorridor, setShowOffCorridor] = useState(true);
 
-  return (
-    <form
-      className="flex flex-col gap-6"
-      onSubmit={(e) => {
-        e.preventDefault();
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!permit.trim()) {
+      setError("Enter your Ministry permit / registration ID.");
+      return;
+    }
+    setError("");
+    if (!loadTokens()) {
+      try {
+        localStorage.setItem(
+          "transitsight-pending-driver",
+          JSON.stringify({ vehicle, plate, permit })
+        );
+      } catch {}
+      router.push("/signup?next=/complete-profile");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.driverRegister({
+        registration_id: permit.trim(),
+        vehicle_type: vehicle,
+        plate_number: plate.trim(),
+      });
+      setRole("driver");
+      try {
+        localStorage.removeItem("transitsight-pending-driver");
+      } catch {}
+      router.push("/driver");
+    } catch (err) {
+      if (err instanceof ApiUnreachable) {
+        // Backend down: keep the demo moving.
+        setRole("driver");
         router.push("/driver");
-      }}
-    >
+      } else {
+        setError(err instanceof Error ? err.message : "Registration failed.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="flex flex-col gap-6" onSubmit={submit}>
       <div className="flex flex-col gap-2">
         <label className="text-[13px] tracking-wider uppercase text-on-surface-variant font-semibold">
           Vehicle Type
@@ -143,8 +198,36 @@ export default function DriverSetupForm() {
           />
         </div>
         <span className="text-[13px] text-on-surface-variant">
-          Must match your Akwa Ibom State Ministry of Transport permit.
+          Must match your Ministry permit.
         </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label
+          htmlFor="permit-input"
+          className="text-[13px] tracking-wider uppercase text-on-surface-variant font-semibold"
+        >
+          Permit / Registration ID
+        </label>
+        <div className="relative flex items-center">
+          <span className="absolute left-4 text-on-surface-variant material-symbols-outlined text-[20px]">
+            id_card
+          </span>
+          <input
+            id="permit-input"
+            type="text"
+            value={permit}
+            onChange={(e) => {
+              setPermit(e.target.value.toUpperCase());
+              setError("");
+            }}
+            placeholder="e.g. AKS-MOT-8891"
+            className="w-full h-12 pl-11 pr-4 bg-surface-container-lowest rounded-lg text-[16px] font-semibold tracking-widest text-on-surface uppercase outline outline-1 outline-outline-variant focus:outline-2 focus:outline-secondary transition-all"
+          />
+        </div>
+        {error && (
+          <span className="text-[13px] font-medium text-error">{error}</span>
+        )}
       </div>
 
       <div className="p-4 rounded-2xl bg-surface-container-low flex flex-col gap-2">
@@ -176,17 +259,17 @@ export default function DriverSetupForm() {
           </button>
         </div>
         <p className="text-[13px] text-on-surface-variant pr-8">
-          Nearby off-corridor passenger requests will appear dimmed on your
-          radar.
+          Off-route requests appear dimmed.
         </p>
       </div>
 
       <div className="flex flex-col gap-3 pt-space-xs">
         <button
-          className="w-full h-14 bg-primary-container hover:bg-primary text-on-primary rounded-2xl text-[16px] font-semibold flex items-center justify-center gap-2 transition-colors"
+          className="w-full h-14 bg-primary-container hover:bg-primary text-on-primary rounded-2xl text-[16px] font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
           type="submit"
+          disabled={busy}
         >
-          <span>Start driving</span>
+          <span>{busy ? "Registering…" : "Start driving"}</span>
           <span className="material-symbols-outlined text-[20px]">
             arrow_forward
           </span>

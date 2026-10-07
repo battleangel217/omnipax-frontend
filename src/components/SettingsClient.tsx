@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { saveTokens, setRole } from "@/lib/api";
 
 type Prefs = {
   mode: "day" | "night";
@@ -98,6 +99,8 @@ export default function SettingsClient() {
       setLoggedOut(true);
       return;
     }
+    saveTokens(null);
+    setRole(null);
     router.push("/");
   }
 

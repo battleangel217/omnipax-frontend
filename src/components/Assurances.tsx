@@ -5,34 +5,34 @@ import { useState } from "react";
 const NEVERS = [
   {
     title: "No app install",
-    body: "The whole job runs in your browser. Opera Mini and low-end phones included.",
+    body: "Everything runs in your browser. Even Opera Mini.",
   },
   {
     title: "No personal tracking",
-    body: "The map shows crowds, never individuals. No avatars, no phone numbers on display.",
+    body: "Crowds only. No faces, no phone numbers.",
   },
   {
     title: "No price games",
-    body: "Fares follow the state scale. What you see at the pin is what you pay.",
+    body: "Fixed fares. What you see is what you pay.",
   },
 ];
 
 const FAQS = [
   {
     q: "Does it cost anything?",
-    a: "Starting is free for commuters and drivers. Verification codes arrive by email — no airtime needed.",
+    a: "Free for everyone. Codes arrive by email — no airtime needed.",
   },
   {
     q: "Do I need to install an app?",
-    a: "No. TransitSight is a lightweight web page that works on 2G/3G and low-end phones without installation.",
+    a: "No. It is a web page that works on 2G/3G. Nothing to install.",
   },
   {
     q: "Will drivers see my phone number?",
-    a: "Never. Operators see aggregate demand per corridor. Your number stays private.",
+    a: "Never. Drivers see crowds per road, not your number.",
   },
   {
     q: "Are fares really fixed?",
-    a: "Yes. Every corridor shows the Akwa Ibom State regulated span, for example ₦150 – ₦200 on Oron Road.",
+    a: "Yes. Every road shows its fixed state fare.",
   },
 ];
 

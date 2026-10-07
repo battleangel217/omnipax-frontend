@@ -10,9 +10,8 @@ export default function DemandSection() {
             Know where the crowd is — by corridor.
           </h2>
           <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-on-surface-variant">
-            No more “somebody is waiting somewhere.” Each corridor carries its
-            own count and wait time. Crowds clear themselves as drivers arrive —
-            and the map never shows individual people, only the crowd.
+            See how many people wait on each road. The map shows crowds,
+            never individuals.
           </p>
           <div className="mt-8 flex flex-wrap gap-2.5">
             <span className="inline-flex items-center gap-2 rounded-full bg-error-container px-4 py-2 text-[13px] font-semibold text-on-error-container">
@@ -57,8 +56,7 @@ export default function DemandSection() {
               ))}
             </div>
             <p className="mt-4 text-[13px] leading-relaxed text-on-surface-variant">
-              Every corridor runs on the state fare scale. What you see at
-              the pin is what you pay.
+              Fixed state fares on every route.
             </p>
           </div>
         </div>

@@ -5,28 +5,43 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 import type { AltSpot } from "@/components/RestrictedLiveMap";
+import { useGeoFeeds } from "@/hooks/useGeo";
 import {
   ABAK_JUNCTION,
   IKOT_EKPENE_RD,
   ORON_RD,
   type LatLng,
-} from "@/components/map-shared";
+} from "@/components/map-data";
 
-const LiveMap = dynamic(() => import("@/components/RestrictedLiveMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-surface-container">
-      <div className="flex items-center gap-2 text-on-surface-variant">
-        <span className="material-symbols-outlined animate-spin text-[20px] text-secondary">
-          sync
-        </span>
-        <span className="text-[14px] font-medium">Loading live map…</span>
-      </div>
-    </div>
-  ),
-});
+type Alt = AltSpot & { sub: string; dist: string; time: string };
 
-const ALTS: Array<AltSpot & { sub: string; dist: string; time: string }> = [
+const ALT_META: Array<{
+  match: string[];
+  sub: string;
+  dist: string;
+  time: string;
+}> = [
+  {
+    match: ["abak"],
+    sub: "Plaza feeder shelter · Bay 3",
+    dist: "150 m",
+    time: "~2 min walk",
+  },
+  {
+    match: ["ikot"],
+    sub: "Near Central Mosque terminal",
+    dist: "220 m",
+    time: "~3 mins",
+  },
+  {
+    match: ["oron"],
+    sub: "Old Stadium Link Node",
+    dist: "310 m",
+    time: "~4 mins",
+  },
+];
+
+const FALLBACK_ALTS: Alt[] = [
   {
     name: "Abak Road Junction",
     pos: ABAK_JUNCTION,
@@ -50,9 +65,60 @@ const ALTS: Array<AltSpot & { sub: string; dist: string; time: string }> = [
   },
 ];
 
+function altsFromFeed(
+  junctions: Array<{ id: string; name: string; pos: LatLng }>
+): Alt[] {
+  const lower = (s: string) => s.toLowerCase();
+  const out: Alt[] = [];
+  for (const meta of ALT_META) {
+    const hit = junctions.find((j) =>
+      meta.match.some((k) => lower(j.name).includes(k))
+    );
+    if (hit) {
+      const fb = FALLBACK_ALTS[ALT_META.indexOf(meta)];
+      out.push({
+        name: hit.name,
+        pos: hit.pos,
+        sub: fb.sub,
+        dist: fb.dist,
+        time: fb.time,
+      });
+    }
+  }
+  for (const j of junctions) {
+    if (out.length >= 3) break;
+    if (out.some((a) => a.name === j.name)) continue;
+    out.push({
+      name: j.name,
+      pos: j.pos,
+      sub: "Designated pickup node",
+      dist: "Nearby",
+      time: "~5 mins",
+    });
+  }
+  return out.length ? out : FALLBACK_ALTS;
+}
+
+const LiveMap = dynamic(() => import("@/components/RestrictedLiveMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full min-h-[560px] w-full items-center justify-center bg-surface-container">
+      <div className="flex items-center gap-2 text-on-surface-variant">
+        <span className="material-symbols-outlined animate-spin text-[20px] text-secondary">
+          sync
+        </span>
+        <span className="text-[14px] font-medium">Loading live map…</span>
+      </div>
+    </div>
+  ),
+});
+
 export default function RestrictedClient() {
   const router = useRouter();
-  const [selected, setSelected] = useState(ALTS[0]);
+  const { junctions, zones } = useGeoFeeds();
+  const ALTS = altsFromFeed(junctions);
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const selected = ALTS.find((a) => a.name === selectedName) ?? ALTS[0];
   const [moveState, setMoveState] = useState<"idle" | "moving" | "moved">(
     "idle"
   );
@@ -66,7 +132,7 @@ export default function RestrictedClient() {
   }
 
   function pick(alt: (typeof ALTS)[number]) {
-    setSelected(alt);
+    setSelectedName(alt.name);
     fly(alt.pos);
   }
 
@@ -125,9 +191,7 @@ export default function RestrictedClient() {
                     Transit is closed on this road
                   </h1>
                   <p className="text-[14px] leading-relaxed text-on-surface-variant">
-                    Keke and minibus pickups are strictly prohibited on Aka
-                    Road due to civil resurfacing. Move your pin to the
-                    nearest designated open corridor to request transport.
+                    No pickups on Aka Road right now. Move your pin to the nearest open road.
                   </p>
                 </div>
 
@@ -290,9 +354,7 @@ export default function RestrictedClient() {
                     Akwa Ibom State Ministry of Transport
                   </span>
                   <span className="mt-0.5">
-                    Geofence enforcement active. Keke Napep and minibus
-                    dispatchers cannot view or accept rides placed inside red
-                    marked exclusion corridors.
+                    Drivers cannot see pins inside red zones.
                   </span>
                 </div>
               </div>
@@ -304,6 +366,7 @@ export default function RestrictedClient() {
                   selected={{ name: selected.name, pos: selected.pos }}
                   resolved={moveState === "moved"}
                   flyTarget={flyTarget}
+                  zones={zones}
                 />
                 {moveState === "moved" && (
                   <div className="absolute left-1/2 top-20 z-[500] -translate-x-1/2">

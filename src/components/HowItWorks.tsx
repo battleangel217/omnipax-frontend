@@ -3,7 +3,7 @@ const STEPS = [
     n: "1",
     icon: "person_pin_circle",
     title: "Pin your waiting spot",
-    body: "Stand at Ibom Plaza or any corridor and drop a pin. Thirty seconds, no app install.",
+    body: "Stand anywhere and drop a pin. 30 seconds, no app.",
     visualTitle: "Ibom Plaza Hub",
     visualBody: "14 waiting · ~3 min",
     dark: true,
@@ -12,7 +12,7 @@ const STEPS = [
     n: "2",
     icon: "groups",
     title: "Drivers see the crowd",
-    body: "Keke and minibus operators watch one live demand map instead of cruising blind.",
+    body: "Drivers see your pin on one live map.",
     visualTitle: "18 Keke nearby",
     visualBody: "Itam Hub · High surge",
     dark: false,
@@ -21,7 +21,7 @@ const STEPS = [
     n: "3",
     icon: "payments",
     title: "Meet and go",
-    body: "Fixed state fares and verified arrivals. Zero haggling at the junction.",
+    body: "Fixed fares. No haggling.",
     visualTitle: "₦150 – ₦200",
     visualBody: "2–4 min average wait",
     dark: false,
@@ -39,8 +39,7 @@ export default function HowItWorks() {
           Three small habits. One complete trip.
         </h2>
         <p className="mt-3 text-[16px] text-on-surface-variant">
-          Keep scrolling — each habit stacks onto the last, the way your day
-          does.
+          Three steps. Two minutes.
         </p>
       </div>
 

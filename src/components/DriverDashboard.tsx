@@ -2,6 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useDriverLoop } from "@/hooks/useDriverLoop";
+import { useGeoFeeds } from "@/hooks/useGeo";
+import { CORRIDOR_TARGETS } from "@/components/map-data";
 
 const LiveMap = dynamic(() => import("./DriverLiveMap"), {
   ssr: false,
@@ -21,10 +25,24 @@ type LatLng = [number, number];
 
 export default function DriverDashboard() {
   const [radarOn, setRadarOn] = useState(true);
-  const [paused, setPaused] = useState(false);
   const [navSignal, setNavSignal] = useState(0);
   const [navigating, setNavigating] = useState(false);
   const [driverPos, setDriverPos] = useState<LatLng | null>(null);
+  const [codes, setCodes] = useState<Record<string, string>>({});
+  const [mode, setMode] = useState<"surge" | "quiet">("surge");
+  const [assigned, setAssigned] = useState("Oron Road Corridor");
+  const [flyTo, setFlyTo] = useState<{ pos: LatLng; nonce: number } | null>(null);
+  const { corridors } = useGeoFeeds();
+  const loop = useDriverLoop();
+  const quiet = mode === "quiet";
+  const paused = !loop.online;
+  const topZone = loop.zones.length ? [...loop.zones].sort((a, b) => b.score - a.score)[0] : null;
+  const fleetTotal = loop.zones.length
+    ? loop.zones.reduce((n, z) => n + z.available_drivers, 0)
+    : 29;
+  const hotCount = loop.zones.length
+    ? loop.zones.filter((z) => z.active_pins > 0).length
+    : 2;
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -42,29 +60,106 @@ export default function DriverDashboard() {
     setTimeout(() => setNavigating(false), 1600);
   }
 
+  function reassign() {
+    const names =
+      corridors.length > 0
+        ? corridors.map((c) => c.name)
+        : CORRIDOR_TARGETS.map((c) => c.name.replace(" Line", " Corridor").replace("Circus", "Corridor").replace("Hub", "Corridor"));
+    const next = names[(names.indexOf(assigned) + 1) % names.length] ?? names[0];
+    setAssigned(next);
+    const anchor =
+      CORRIDOR_TARGETS.find((c) =>
+        next.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])
+      )?.pos ?? CORRIDOR_TARGETS[0].pos;
+    setFlyTo((f) => ({ pos: anchor, nonce: (f?.nonce ?? 0) + 1 }));
+  }
+
   return (
     <div className="flex w-full flex-col">
       <div className="flex w-full flex-wrap items-center gap-3 border-b border-surface-container-highest bg-surface-container-lowest px-4 py-3">
+        <div className="flex items-center rounded-full bg-surface-container-low p-1">
+          {(["surge", "quiet"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`h-8 rounded-full px-4 text-[13px] font-semibold capitalize transition-colors ${
+                mode === m
+                  ? "bg-primary-container text-on-primary"
+                  : "text-on-surface-variant hover:text-on-surface"
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-2 rounded-full bg-error-container px-3 py-1 text-on-error-container">
             <span className="relative flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-error opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-error" />
             </span>
             <span className="text-[13px] font-semibold uppercase tracking-wide">
-              {paused ? "Shift Paused" : "Network Surge Status: High Commuter Demand"}
+              {quiet
+                ? "Cruising · Low Demand Nearby"
+                : !loop.authed
+                  ? "Demo Mode: High Commuter Demand"
+                  : paused
+                    ? "Shift Paused"
+                    : "Network Surge Status: High Commuter Demand"}
             </span>
           </div>
           <div className="hidden items-center gap-1 text-[13px] text-on-surface-variant xl:flex">
             <span className="material-symbols-outlined text-[16px] text-on-tertiary-container">
               sync
             </span>
-            <span>Telemetry Stream Live</span>
+            <span>
+              {loop.authed
+                ? loop.wsLive
+                  ? "Telemetry Stream Live · socket"
+                  : "Telemetry Stream Live · polling"
+                : "Telemetry Stream Live"}
+            </span>
           </div>
       </div>
 
       <div className="grid min-h-[calc(100vh-7rem)] w-full grid-cols-1 gap-0 bg-surface lg:grid-cols-12">
         <div className="flex flex-col gap-4 overflow-y-auto border-r border-surface-container-highest bg-surface p-4 lg:col-span-4 lg:max-h-[calc(100vh-7rem)]">
-          <div className="flex flex-col gap-3 rounded-xl bg-error-container p-4 text-on-error-container">
+          {quiet ? (
+            <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[13px] uppercase tracking-wider text-on-surface-variant">
+                    Operational Phase
+                  </span>
+                  <h1 className="text-[20px] text-on-surface">
+                    Cruising Oron Road
+                  </h1>
+                  <p className="text-[14px] text-on-surface-variant">
+                    Low commuter density reported within 1.5 km
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-full bg-surface-container px-3 py-1">
+                  <span className="h-2 w-2 rounded-full bg-outline" />
+                  <span className="text-[13px] font-semibold text-on-surface">
+                    Quiet
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={navigate}
+                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-primary-container text-on-primary transition-colors hover:bg-primary"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  {navigating ? "sync" : "near_me"}
+                </span>
+                <span className={navigating ? "animate-pulse" : ""}>
+                  {navigating ? "Routing…" : "Navigate to Plaza Hub"}
+                </span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 rounded-xl bg-error-container p-4 text-on-error-container">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="rounded bg-error px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-on-error">
@@ -84,10 +179,12 @@ export default function DriverDashboard() {
             <div className="mt-1 flex items-baseline justify-between">
               <div>
                 <h2 className="text-[20px] font-bold text-on-error-container">
-                  Ibom Plaza Hub
+                  {topZone ? topZone.name : "Ibom Plaza Hub"}
                 </h2>
                 <p className="text-[14px] font-medium text-error">
-                  14 commuters waiting · 0.8 km away
+                  {topZone
+                    ? `${topZone.active_pins} commuters waiting · ${topZone.corridor}`
+                    : "14 commuters waiting · 0.8 km away"}
                 </p>
               </div>
               <div className="text-right">
@@ -113,6 +210,111 @@ export default function DriverDashboard() {
                 {navigating ? "Routing to hotspot…" : "Navigate to Hotspot"}
               </span>
             </button>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-primary">
+                Incoming requests
+              </span>
+              <span className="rounded-full bg-surface-container px-2.5 py-0.5 text-[13px] font-bold text-on-surface-variant">
+                {loop.authed ? loop.pins.length : 3}
+              </span>
+            </div>
+            {!loop.authed ? (
+              <p className="text-[13px] leading-relaxed text-on-surface-variant">
+                Log in as a driver to receive live pickup requests here. Demo
+                preview below.
+              </p>
+            ) : loop.pins.length === 0 ? (
+              <p className="text-[13px] text-on-surface-variant">
+                No requests right now. Stay online — pages arrive instantly.
+              </p>
+            ) : null}
+            {(loop.authed ? loop.pins : []).map((p) => {
+              const reserved = p.status === "reserved";
+              return (
+                <div
+                  key={p.id}
+                  className="flex flex-col gap-2 rounded-lg bg-surface-container-low p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-on-surface">
+                      {p.junction_name} · #{p.pickup_code}
+                    </p>
+                    <p className="text-[13px] text-on-surface-variant">
+                      {p.corridor_name} · {p.vehicle_type} · {p.status}
+                    </p>
+                  </div>
+                  {!reserved ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loop.accept(p.id)}
+                        className="h-11 rounded-lg bg-secondary text-[14px] font-semibold text-on-secondary"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loop.decline(p.id)}
+                        className="h-11 rounded-lg bg-surface-container text-[14px] font-semibold text-on-surface-variant"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        value={codes[p.id] ?? ""}
+                        onChange={(e) =>
+                          setCodes((c) => ({ ...c, [p.id]: e.target.value }))
+                        }
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="4-digit code"
+                        className="h-11 w-full rounded-lg bg-surface-container-lowest px-3 text-center text-[16px] font-bold tracking-widest text-primary outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-outline focus:ring-2 focus:ring-secondary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => loop.complete(p.id, codes[p.id] ?? "")}
+                        className="h-11 shrink-0 rounded-lg bg-primary-container px-4 text-[14px] font-semibold text-on-primary"
+                      >
+                        Complete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {!loop.authed &&
+              [
+                { j: "Ibom Plaza Hub", c: "Oron Road", code: "8402" },
+                { j: "Itam Market Hub", c: "Ikot Ekpene Road", code: "1177" },
+                { j: "Tropicana Mall", c: "Oron Road", code: "0934" },
+              ].map((p) => (
+                <div
+                  key={p.code}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-surface-container-low p-3 opacity-80"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-on-surface">
+                      {p.j} · #{p.code}
+                    </p>
+                    <p className="text-[13px] text-on-surface-variant">{p.c}</p>
+                  </div>
+                  <Link
+                    href="/login?next=/driver"
+                    className="inline-flex h-10 shrink-0 items-center rounded-lg bg-secondary px-4 text-[13px] font-semibold text-on-secondary"
+                  >
+                    Log in to accept
+                  </Link>
+                </div>
+              ))}
+            {loop.error && (
+              <p className="text-[13px] font-medium text-error">{loop.error}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1 rounded-xl bg-surface-container-lowest p-4">
@@ -128,8 +330,7 @@ export default function DriverDashboard() {
               Oron Road Corridor Surge
             </h3>
             <p className="text-[14px] text-on-surface-variant">
-              High passenger density converging at Ibom Plaza and Plaza feeder
-              bays. Traffic flow active along dual carriageway.
+              Many passengers waiting near Ibom Plaza.
             </p>
           </div>
 
@@ -141,9 +342,13 @@ export default function DriverDashboard() {
                   speed
                 </span>
               </div>
-              <span className="text-[20px] font-bold text-primary">18 km/h</span>
+              <span className="text-[20px] font-bold text-primary">
+                {quiet ? "32 km/h" : "18 km/h"}
+              </span>
               <span className="mt-1 text-[12px] text-on-surface-variant">
-                Moderate congestion near Plaza
+                {quiet
+                  ? "Flowing freely"
+                  : "Moderate congestion near Plaza"}
               </span>
             </div>
             <div className="flex flex-col justify-between rounded-lg bg-surface-container-low p-3">
@@ -156,10 +361,10 @@ export default function DriverDashboard() {
                 </span>
               </div>
               <span className="text-[20px] font-bold text-primary">
-                29 Units
+                {quiet ? "18 Units" : `${fleetTotal} Units`}
               </span>
               <span className="mt-1 text-[12px] text-on-surface-variant">
-                High demand absorptive rate
+                {quiet ? "In 1 km radius" : "High demand absorptive rate"}
               </span>
             </div>
           </div>
@@ -167,7 +372,7 @@ export default function DriverDashboard() {
           <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4">
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-bold text-primary">
-                Oron Road Corridor
+                {quiet ? assigned : "Oron Road Corridor"}
               </span>
               <span className="rounded bg-surface-container px-2 py-0.5 text-[11px] font-semibold uppercase text-on-surface">
                 Approved Route
@@ -208,14 +413,13 @@ export default function DriverDashboard() {
                 warning
               </span>
               <span className="text-[13px] font-bold uppercase tracking-tight">
-                Regulatory Transit Advisory
+                {quiet ? "Corridor Advisory" : "Regulatory Transit Advisory"}
               </span>
             </div>
             <p className="mt-1 text-[13px] leading-relaxed text-on-surface">
-              Heavy queue waiting at Ibom Plaza Central Circus. Pickups are
-              concentrated along Oron Road feeder bay. Remember: Aka Road
-              remains strictly closed to transit. Do not divert onto closed
-              sectors under penalty of permit suspension.
+              {quiet
+                ? "Off-peak on Oron Road. Demand rises at Ibom Plaza around 16:30. Cruise steady and save fuel."
+                : "Big queue at Ibom Plaza. Use Oron Road. Aka Road is closed — do not divert."}
             </p>
           </div>
 
@@ -247,6 +451,18 @@ export default function DriverDashboard() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-1">
+              {quiet && (
+                <button
+                  type="button"
+                  onClick={reassign}
+                  className="col-span-2 flex min-h-[44px] items-center justify-center gap-1 rounded-lg bg-primary-container text-[13px] font-medium text-on-primary transition-colors hover:bg-primary"
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    swap_horiz
+                  </span>
+                  Request Corridor Reassignment
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setNavSignal((n) => n + 1)}
@@ -259,7 +475,7 @@ export default function DriverDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => setPaused((v) => !v)}
+                onClick={() => loop.setOnline(!loop.online)}
                 className="flex min-h-[44px] items-center justify-center gap-1 rounded-lg bg-surface-container-lowest text-[13px] font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low"
               >
                 <span className="material-symbols-outlined text-[16px]">
@@ -284,7 +500,7 @@ export default function DriverDashboard() {
               <span className="font-medium text-on-primary">
                 Network Demand Index:{" "}
                 <strong className="text-error-container">
-                  88% (Surge Peak)
+                  {quiet ? "14% (Low)" : "88% (Surge Peak)"}
                 </strong>
               </span>
               <span className="hidden text-on-primary-container md:inline">
@@ -311,6 +527,21 @@ export default function DriverDashboard() {
               navSignal={navSignal}
               radarOn={radarOn}
               driverPos={driverPos}
+              quiet={quiet}
+              flyTo={flyTo}
+              pins={loop.pins
+                .map((p) => {
+                  const lat = parseFloat(String(p.raw_latitude));
+                  const lng = parseFloat(String(p.raw_longitude));
+                  if (Number.isNaN(lat) || Number.isNaN(lng))
+                    return null;
+                  return {
+                    id: p.id,
+                    pos: [lat, lng] as LatLng,
+                    label: `${p.junction_name} · #${p.pickup_code}`,
+                  };
+                })
+                .filter((p) => p !== null)}
             />
           </div>
 
@@ -363,7 +594,7 @@ export default function DriverDashboard() {
                   hub
                 </span>
                 <span className="font-semibold text-primary">
-                  Active Hotspots: 2
+                  Active Hotspots: {hotCount}
                 </span>
               </span>
             </div>

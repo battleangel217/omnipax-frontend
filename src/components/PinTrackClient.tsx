@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
+import { useActivePin, readStoredPin } from "@/hooks/useActivePin";
+import { api, loadTokens } from "@/lib/api";
 
 const LiveMap = dynamic(() => import("@/components/TipLiveMap"), {
   ssr: false,
@@ -30,7 +32,16 @@ function formatTime(sec: number) {
 }
 
 export default function PinTrackClient() {
-  const [left, setLeft] = useState(START_LEFT);
+  const { pin, clearPin } = useActivePin();
+  // Real expiry when a live pin exists, demo fallback otherwise.
+  const [left, setLeft] = useState(() => {
+    const p = readStoredPin();
+    if (!p) return START_LEFT;
+    return Math.max(
+      0,
+      Math.floor((new Date(p.expires_at).getTime() - Date.now()) / 1000)
+    );
+  });
   const [rideState, setRideState] = useState<"active" | "done">("active");
   const [cancelArm, setCancelArm] = useState(false);
   const [cancelled, setCancelled] = useState(false);
@@ -54,6 +65,10 @@ export default function PinTrackClient() {
       setCancelArm(true);
       return;
     }
+    if (pin && loadTokens()) {
+      api.pin.cancel(pin.id).catch(() => {});
+    }
+    clearPin();
     setCancelled(true);
   }
 
@@ -112,8 +127,7 @@ export default function PinTrackClient() {
                       Your area glows gold
                     </h1>
                     <p className="text-[14px] text-on-surface-variant">
-                      Tricycle and minibus operators within 500m have your
-                      visual beacon pinned to Ibom Plaza roundabout.
+                      Nearby drivers can see your gold beacon.
                     </p>
                   </div>
                   <div className="space-y-2.5 rounded-lg bg-surface-container-low p-3.5">
@@ -171,8 +185,8 @@ export default function PinTrackClient() {
                     {
                       icon: "electric_rickshaw",
                       iconBg: "bg-amber-100 text-amber-900",
-                      title: "3 drivers responding",
-                      sub: "Within 300 meters on Ikot Ekpene and Oron Rd",
+                      title: "Beacon visible to drivers",
+                      sub: "Nearby Keke and minibuses can see it",
                     },
                     {
                       icon: "alt_route",
@@ -257,7 +271,7 @@ export default function PinTrackClient() {
                   <div className="absolute left-4 top-4 z-[500] flex items-center gap-2 rounded-lg border border-surface-variant/80 bg-surface-container-lowest/95 px-3.5 py-2 backdrop-blur">
                     <span className="h-2.5 w-2.5 animate-ping rounded-full bg-amber-500" />
                     <span className="text-[13px] font-semibold text-on-surface">
-                      3 drivers responding to gold beacon · Ibom Plaza node
+                      Gold beacon live · Ibom Plaza node
                     </span>
                   </div>
                 </div>

@@ -11,8 +11,7 @@ export default function Hero() {
           Get a ride. <span className="text-secondary">Or find one.</span>
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-on-surface-variant md:text-[20px]">
-          Pin where you wait in Uyo. Drivers see live demand and meet the
-          queue — no app install, no haggling.
+          Pin where you wait. Drivers see it and come to you.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link

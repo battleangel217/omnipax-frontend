@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import {
+  Circle,
   MapContainer,
   Marker,
   Polyline,
@@ -104,10 +105,12 @@ export default function RestrictedLiveMap({
   selected,
   resolved,
   flyTarget,
+  zones,
 }: {
   selected: AltSpot;
   resolved: boolean;
   flyTarget: { pos: LatLng; nonce: number } | null;
+  zones: Array<{ id: string; name: string; center: LatLng; radius_m: number }>;
 }) {
   return (
     <div className="relative h-full w-full">
@@ -128,6 +131,24 @@ export default function RestrictedLiveMap({
         <Polyline positions={[IBOM_PLAZA, IKOT_EKPENE_RD]} pathOptions={{ color: "#1D5DFE", weight: 5, dashArray: "12 6" }} />
         <Polyline positions={[IBOM_PLAZA, ORON_RD, TROPICANA]} pathOptions={{ color: "#1D5DFE", weight: 5, dashArray: "12 6" }} />
         <Polyline positions={[IBOM_PLAZA, ABAK_JUNCTION]} pathOptions={{ color: "#1D5DFE", weight: 6 }} />
+
+        {/* Live restricted zones from the backend feed */}
+        {zones.map((z) => (
+          <Circle
+            key={z.id}
+            center={z.center}
+            radius={z.radius_m}
+            pathOptions={{
+              color: "#BA1A1A",
+              weight: 2,
+              dashArray: "8 6",
+              fillColor: "#BA1A1A",
+              fillOpacity: 0.12,
+            }}
+          >
+            <Tooltip direction="top">{z.name} · closed</Tooltip>
+          </Circle>
+        ))}
 
         {/* Aka Road — closed */}
         <Polyline positions={[IBOM_PLAZA, AKA_SOUTH]} pathOptions={{ color: "#FFDAD6", weight: 12 }} />

@@ -16,15 +16,31 @@ export default function CommandPanel({
   searching,
   geoError,
   onClearDestination,
+  pin,
+  pinBusy,
+  pinError,
+  onRequestPin,
+  onCancelPin,
 }: {
   onSearch: (query: string) => void;
   searching: boolean;
   geoError: string;
   onClearDestination: () => void;
+  pin: {
+    id: string;
+    pickup_code: string;
+    status: string;
+    junction_name: string;
+    corridor_name: string;
+    expires_at: string;
+  } | null;
+  pinBusy: boolean;
+  pinError: string;
+  onRequestPin: () => void;
+  onCancelPin: () => void;
 }) {
   const [dest, setDest] = useState("Tropicana Mall");
   const [activePill, setActivePill] = useState("Tropicana");
-  const [reqState, setReqState] = useState<"idle" | "sending" | "issued">("idle");
 
   function commit(q: string) {
     onSearch(q);
@@ -37,11 +53,7 @@ export default function CommandPanel({
     commit(q);
   }
 
-  function request() {
-    if (reqState !== "idle") return;
-    setReqState("sending");
-    setTimeout(() => setReqState("issued"), 1100);
-  }
+  const issued = pin !== null;
 
   return (
     <aside className="relative z-20 flex h-full w-full flex-col justify-between overflow-y-auto border-r border-outline-variant/30 bg-surface-container-lowest shadow-xl lg:max-w-[440px]">
@@ -98,27 +110,38 @@ export default function CommandPanel({
                 if (e.key === "Enter") commit(dest);
               }}
               placeholder="Search corridor or landmark..."
-              className="h-12 w-full rounded-xl border border-outline-variant/60 bg-surface pl-11 pr-10 text-[14px] text-primary placeholder:text-on-surface-variant/60 focus:border-secondary focus:outline-none transition-all"
+              className="h-12 w-full rounded-xl border border-outline-variant/60 bg-surface pl-11 pr-20 text-[14px] text-primary placeholder:text-on-surface-variant/60 focus:border-secondary focus:outline-none transition-all"
             />
-            {searching && (
+            {searching ? (
               <span className="material-symbols-outlined absolute right-3 animate-spin text-[18px] text-secondary">
                 sync
               </span>
-            )}
-            {!searching && dest && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => {
-                  setDest("");
-                  onClearDestination();
-                }}
-                className="absolute right-3 text-on-surface-variant hover:text-primary"
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  cancel
-                </span>
-              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  aria-label="Search"
+                  onClick={() => commit(dest)}
+                  className="absolute right-2 flex h-8 items-center rounded-lg bg-secondary px-3 text-[13px] font-semibold text-on-secondary"
+                >
+                  Go
+                </button>
+                {dest && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => {
+                      setDest("");
+                      onClearDestination();
+                    }}
+                    className="absolute right-[68px] text-on-surface-variant hover:text-primary"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      cancel
+                    </span>
+                  </button>
+                )}
+              </>
             )}
           </div>
           {geoError && (
@@ -200,15 +223,15 @@ export default function CommandPanel({
         <div className="flex flex-col gap-2 pt-1">
           <button
             type="button"
-            onClick={request}
-            disabled={reqState === "sending"}
+            onClick={issued ? onCancelPin : onRequestPin}
+            disabled={pinBusy}
             className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl text-[16px] font-semibold shadow-sm transition-all active:scale-[0.99] ${
-              reqState === "issued"
+              issued
                 ? "bg-tertiary-container text-on-tertiary-container"
                 : "bg-secondary-container text-on-primary hover:bg-secondary"
-            } ${reqState === "sending" ? "pointer-events-none opacity-80" : ""}`}
+            } ${pinBusy ? "pointer-events-none opacity-80" : ""}`}
           >
-            {reqState === "idle" && (
+            {!issued && (
               <>
                 <span className="material-symbols-outlined text-[20px]">
                   pin_drop
@@ -216,27 +239,45 @@ export default function CommandPanel({
                 <span>Request transit pin</span>
               </>
             )}
-            {reqState === "sending" && (
+            {issued && pinBusy && (
               <>
                 <span className="material-symbols-outlined animate-spin text-[20px]">
                   sync
                 </span>
-                <span>Dispatching Pin...</span>
+                <span>Working…</span>
               </>
             )}
-            {reqState === "issued" && (
+            {issued && !pinBusy && (
               <>
                 <span className="material-symbols-outlined text-[20px]">
                   verified
                 </span>
-                <span>Pin Issued: #UY-8402 (Active)</span>
+                <span>
+                  Pin #{pin.pickup_code} · {pin.junction_name} (Active)
+                </span>
               </>
             )}
           </button>
+          {issued && !pinBusy && (
+            <button
+              type="button"
+              onClick={onCancelPin}
+              className="text-center text-[13px] font-medium text-on-surface-variant hover:text-error"
+            >
+              Cancel pin
+            </button>
+          )}
+          {pinError && (
+            <p className="text-center text-[13px] font-medium text-error">
+              {pinError}
+            </p>
+          )}
           <p className="text-center text-[13px] text-on-surface-variant">
-            Your pin lasts 15 minutes
+            {issued
+              ? `Status: ${pin.status} · expires ${new Date(pin.expires_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+              : "Your pin lasts 15 minutes"}
           </p>
-          {reqState === "issued" && (
+          {issued && (
             <Link
               href="/passenger/tip"
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary-container text-[15px] font-semibold text-on-primary transition-colors hover:bg-primary"
@@ -259,8 +300,7 @@ export default function CommandPanel({
             <strong className="font-semibold text-on-surface">
               Automatic Dispatch:
             </strong>{" "}
-            Active tricycles (Keke Napep) and registered minibuses on Aka &
-            Oron lines are alerted instantly.
+            Keke and minibuses on Aka and Oron lines are alerted instantly.
           </p>
         </div>
         <div className="flex items-start gap-2.5">
@@ -271,8 +311,7 @@ export default function CommandPanel({
             <strong className="font-semibold text-on-surface">
               Offline Capable:
             </strong>{" "}
-            Zero airtime toll. Lightweight transmission runs reliably on 2G/3G
-            bandwidth.{" "}
+            No airtime needed. Works on 2G/3G.{" "}
             <Link
               href="/passenger/restricted"
               className="font-semibold text-secondary hover:underline"

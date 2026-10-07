@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ApiUnreachable, api, loadTokens } from "@/lib/api";
+import { useActivePin } from "@/hooks/useActivePin";
 
 const TIPS = [
   { amount: 100, tag: "Recommended" },
@@ -13,6 +15,7 @@ const FEE = 10;
 
 export default function TipPanel() {
   const router = useRouter();
+  const { pin: livePin } = useActivePin(false);
   const [selected, setSelected] = useState<number>(100);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
@@ -33,11 +36,41 @@ export default function TipPanel() {
     }
   }
 
-  function pay() {
+  const [payError, setPayError] = useState("");
+
+  function readPinId(): string | null {
+    return livePin ? livePin.id : null;
+  }
+
+  async function pay() {
     if (payState !== "idle") return;
+    setPayError("");
+    const pinId = readPinId();
+    if (!pinId || !loadTokens()) {
+      // No live pin: keep the demo flow moving.
+      setPayState("paying");
+      setTimeout(() => setPayState("active"), 1000);
+      setTimeout(() => router.push("/passenger/pin"), 2200);
+      return;
+    }
     setPayState("paying");
-    setTimeout(() => setPayState("active"), 1000);
-    setTimeout(() => router.push("/passenger/pin"), 2200);
+    try {
+      const res = await api.tipInitiate(pinId, selected);
+      if (res.redirect_url) {
+        window.location.href = res.redirect_url;
+        return;
+      }
+      setPayState("active");
+      setTimeout(() => router.push("/passenger/pin"), 1600);
+    } catch (e) {
+      if (e instanceof ApiUnreachable) {
+        setPayState("active");
+        setTimeout(() => router.push("/passenger/pin"), 1600);
+      } else {
+        setPayState("idle");
+        setPayError(e instanceof Error ? e.message : "Payment failed.");
+      }
+    }
   }
 
   return (
@@ -56,7 +89,7 @@ export default function TipPanel() {
             Add a priority tip
           </h1>
           <p className="mt-1 text-[14px] text-on-surface-variant">
-            Your area glows gold for drivers. Tips are optional.
+            Your area glows gold. Tips are optional.
           </p>
         </div>
 
@@ -65,8 +98,7 @@ export default function TipPanel() {
             radar
           </span>
           <p className="text-[13px] text-on-surface">
-            Drivers in range (7 Keke, 2 Mini-buses) will see an intensified
-            gold beacon on your pickup zone at Ibom Plaza Central Circus.
+            Nearby drivers will see a gold beacon on your pickup spot.
           </p>
         </div>
 
@@ -202,6 +234,11 @@ export default function TipPanel() {
           <p className="text-center text-[13px] text-on-surface-variant">
             Secure payment powered by Bachs · Zero charge on failed rides
           </p>
+          {payError && (
+            <p className="text-center text-[13px] font-medium text-error">
+              {payError}
+            </p>
+          )}
         </div>
 
         <div className="flex items-start gap-2 rounded-lg bg-surface-container-low p-3">
@@ -209,9 +246,7 @@ export default function TipPanel() {
             verified_user
           </span>
           <p className="text-[13px] leading-relaxed text-on-surface-variant">
-            Tips are credited directly to the driver who picks you up. If you
-            cancel your pin before pickup, your full amount is refunded
-            immediately to your Bachs wallet.
+            Only the driver who picks you up gets the tip. Cancel anytime for a full refund.
           </p>
         </div>
       </div>

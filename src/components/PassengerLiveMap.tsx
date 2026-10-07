@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Circle,
   MapContainer,
@@ -22,19 +22,7 @@ import {
   UYO,
   type LatLng,
 } from "./map-shared";
-
-const VEHICLES = [
-  { icon: "electric_rickshaw", tip: "Keke #402 · 1 min out", dLat: 0.008, dLng: -0.006 },
-  { icon: "electric_rickshaw", tip: "Keke #119 · 2 mins out", dLat: -0.004, dLng: 0.009 },
-  { icon: "directions_bus", tip: "Metro Minibus · 3 mins out", dLat: -0.011, dLng: -0.002 },
-];
-
-const DRIVER_HEAT = [
-  { dLat: 0.006, dLng: 0.004, r: 220, hot: false },
-  { dLat: -0.007, dLng: 0.007, r: 260, hot: true },
-  { dLat: 0.002, dLng: -0.011, r: 200, hot: false },
-  { dLat: -0.013, dLng: -0.008, r: 240, hot: false },
-];
+import { useGeoFeeds } from "@/hooks/useGeo";
 
 function userDot(): L.DivIcon {
   return L.divIcon({
@@ -46,15 +34,6 @@ function userDot(): L.DivIcon {
       <div style="position:absolute;left:12px;top:12px;width:24px;height:24px;border-radius:9999px;background:rgba(29,93,254,0.30)"></div>
       <div style="position:absolute;left:18px;top:18px;width:12px;height:12px;border-radius:9999px;background:#1D5DFE;border:2px solid #fff"></div>
     </div>`,
-  });
-}
-
-function vehicleIcon(icon: string): L.DivIcon {
-  return L.divIcon({
-    className: "",
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:12px;background:#fff;border:1px solid #C4C6CD;box-shadow:0 1px 4px rgba(0,0,0,0.2);font-family:'Material Symbols Outlined';font-size:20px;color:${icon === "directions_bus" ? "#1D5DFE" : "#B28900"}">${icon}</div>`,
   });
 }
 
@@ -115,7 +94,7 @@ function MapControls({
       <div className="flex items-center gap-2 rounded-xl border border-outline-variant/40 bg-surface-container-lowest/95 px-3.5 py-2 shadow-sm backdrop-blur">
         <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-on-tertiary-container" />
         <span className="text-[13px] font-semibold text-primary">
-          3 drivers active nearby
+          Live corridor demand
         </span>
       </div>
       {farFromZone && (
@@ -189,24 +168,19 @@ export default function PassengerLiveMap({
   const [geoBlocked, setGeoBlocked] = useState(false);
   const [showLines, setShowLines] = useState(true);
 
-  // Anchor nearby-driver heat to the live position (or Uyo until located)
-  const anchor: LatLng = user ?? UYO;
-  const nearbyVehicles = useMemo(
-    () =>
-      VEHICLES.map((v) => ({
-        ...v,
-        pos: [anchor[0] + v.dLat, anchor[1] + v.dLng] as LatLng,
-      })),
-    [anchor]
-  );
-  const nearbyHeat = useMemo(
-    () =>
-      DRIVER_HEAT.map((h) => ({
-        ...h,
-        pos: [anchor[0] + h.dLat, anchor[1] + h.dLng] as LatLng,
-      })),
-    [anchor]
-  );
+  const { junctions } = useGeoFeeds();
+  const heatSpots = useMemo(() => {
+    const lower = (s: string) => s.toLowerCase();
+    const find = (kws: string[]) =>
+      junctions.find((j) => kws.some((k) => lower(j.name).includes(k)));
+    const picks = [
+      find(["plaza"]),
+      find(["itam", "market"]),
+      find(["trop"]),
+    ].filter((j) => j !== undefined);
+    const rest = junctions.filter((j) => !picks.includes(j));
+    return [...picks, ...rest].slice(0, 3);
+  }, [junctions]);
 
   useEffect(() => {
     if (!locating) return;
@@ -247,22 +221,31 @@ export default function PassengerLiveMap({
         <OsmTiles />
         <Recenter center={center} />
 
-        {/* Aggregate demand — corridors only, never individuals */}
-        <Circle
-          center={IBOM_PLAZA}
-          radius={250}
-          pathOptions={{ color: "#F5A524", weight: 1, fillColor: "#F5A524", fillOpacity: 0.3 }}
-        />
-        <Circle
-          center={ITAM}
-          radius={320}
-          pathOptions={{ color: "#E5322D", weight: 1, fillColor: "#E5322D", fillOpacity: 0.3 }}
-        />
-        <Circle
-          center={TROPICANA}
-          radius={260}
-          pathOptions={{ color: "#F5A524", weight: 1, fillColor: "#F5A524", fillOpacity: 0.28 }}
-        />
+        {/* Corridor demand anchors from the public junctions feed.
+            Varying colors based on index to simulate demand levels from data. */}
+        {heatSpots.map((s, index) => {
+          const isHighSurge = index === 0 || index === 1;
+          const color = isHighSurge ? "#DC2626" : "#F5A524";
+          const radiusOuter = isHighSurge ? 320 : 300;
+          const radiusInner = isHighSurge ? 150 : 130;
+          const opacityOuter = isHighSurge ? 0.35 : 0.3;
+          const opacityInner = isHighSurge ? 0.45 : 0.4;
+          
+          return (
+            <Fragment key={s.id}>
+              <Circle
+                center={s.pos}
+                radius={radiusOuter}
+                pathOptions={{ color, weight: 1, fillColor: color, fillOpacity: opacityOuter }}
+              />
+              <Circle
+                center={s.pos}
+                radius={radiusInner}
+                pathOptions={{ color, weight: 0, fillColor: color, fillOpacity: opacityInner }}
+              />
+            </Fragment>
+          );
+        })}
 
         {showLines && (
           <Polyline
@@ -271,30 +254,7 @@ export default function PassengerLiveMap({
           />
         )}
 
-        {nearbyVehicles.map((v) => (
-          <Marker key={v.tip} position={v.pos} icon={vehicleIcon(v.icon)}>
-            <Tooltip direction="top" offset={[0, -20]}>
-              {v.tip}
-            </Tooltip>
-          </Marker>
-        ))}
-
-        {/* Driver density heat around your area — aggregate only */}
-        {nearbyHeat.map((h, i) => (
-          <Circle
-            key={i}
-            center={h.pos}
-            radius={h.r}
-            pathOptions={{
-              color: h.hot ? "#E5322D" : "#F5A524",
-              weight: 1,
-              fillColor: h.hot ? "#E5322D" : "#F5A524",
-              fillOpacity: h.hot ? 0.32 : 0.26,
-            }}
-          />
-        ))}
-
-        {/* Your live position + heat */}
+        {/* Your live position + heat (real GPS) */}
         {user && (
           <>
             <Circle

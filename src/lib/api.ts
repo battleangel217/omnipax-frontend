@@ -22,6 +22,25 @@ export class ApiUnreachable extends Error {
 type Tokens = { access: string; refresh: string };
 
 const TOKEN_KEY = "transitsight-tokens";
+const ROLE_KEY = "transitsight-role";
+
+export type Role = "passenger" | "driver" | "admin";
+
+export function getRole(): Role | null {
+  try {
+    const r = localStorage.getItem(ROLE_KEY);
+    return r === "driver" || r === "admin" || r === "passenger" ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setRole(r: Role | null) {
+  try {
+    if (r) localStorage.setItem(ROLE_KEY, r);
+    else localStorage.removeItem(ROLE_KEY);
+  } catch {}
+}
 
 export function loadTokens(): Tokens | null {
   try {
@@ -144,7 +163,7 @@ export const api = {
     registration_id: string;
     vehicle_type: string;
     plate_number: string;
-    approved_corridor_id: string;
+    approved_corridor_id?: string;
   }) =>
     request<unknown>("/api/auth/driver/register/", {
       method: "POST",
@@ -170,13 +189,161 @@ export const api = {
     request<unknown>(`/api/driver/pins/${id}/accept/`, { method: "POST" }),
   pinDecline: (id: string) =>
     request<unknown>(`/api/driver/pins/${id}/decline/`, { method: "POST" }),
-  pinComplete: (id: string) =>
-    request<unknown>(`/api/driver/pins/${id}/complete/`, { method: "POST" }),
+  pinComplete: (id: string, pickup_code: string) =>
+    request<unknown>(`/api/driver/pins/${id}/complete/`, {
+      method: "POST",
+      body: JSON.stringify({ pickup_code }),
+    }),
 
   // --- admin geo (IsAdminRole) ---
-  corridors: () => request<unknown[]>("/api/admin/corridors/"),
-  junctions: () => request<unknown[]>("/api/admin/junctions/"),
-  restrictedZones: () => request<unknown[]>("/api/admin/restricted-zones/"),
+  corridors: () =>
+    request<
+      Array<{ id: string; name: string; description: string; is_active: boolean }>
+    >("/api/admin/corridors/"),
+  corridorCreate: (p: { name: string; description: string }) =>
+    request<{ id: string; name: string; description: string; is_active: boolean }>(
+      "/api/admin/corridors/",
+      { method: "POST", body: JSON.stringify(p) }
+    ),
+  corridorUpdate: (id: string, p: { name?: string; description?: string; is_active?: boolean }) =>
+    request<{ id: string; name: string; description: string; is_active: boolean }>(
+      `/api/admin/corridors/${id}/`,
+      { method: "PATCH", body: JSON.stringify(p) }
+    ),
+  corridorDelete: (id: string) =>
+    request<void>(`/api/admin/corridors/${id}/`, { method: "DELETE" }),
+
+  junctions: () =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        corridor: string;
+        latitude: string;
+        longitude: string;
+        is_active: boolean;
+      }>
+    >("/api/admin/junctions/"),
+  junctionCreate: (p: {
+    name: string;
+    corridor_id: string;
+    latitude: number;
+    longitude: number;
+  }) =>
+    request<{
+      id: string;
+      name: string;
+      corridor: string;
+      latitude: string;
+      longitude: string;
+    }>("/api/admin/junctions/", {
+      method: "POST",
+      body: JSON.stringify(p),
+    }),
+  junctionDelete: (id: string) =>
+    request<void>(`/api/admin/junctions/${id}/`, { method: "DELETE" }),
+
+  restrictedZones: () =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        coordinates: { center: [number, number]; radius_m: number };
+        restriction_type: string;
+        reason: string;
+        is_active: boolean;
+      }>
+    >("/api/admin/restricted-zones/"),
+  restrictedZoneCreate: (p: {
+    name: string;
+    center_lat: number;
+    center_lng: number;
+    radius_m: number;
+    restriction_type: string;
+    reason: string;
+  }) =>
+    request<unknown>("/api/admin/restricted-zones/", {
+      method: "POST",
+      body: JSON.stringify(p),
+    }),
+  restrictedZoneDelete: (id: string) =>
+    request<void>(`/api/admin/restricted-zones/${id}/`, { method: "DELETE" }),
+
+  // --- public geo (AllowAny, active only) ---
+  publicCorridors: () =>
+    request<Array<{ id: string; name: string; description: string }>>(
+      "/api/corridors/",
+      {},
+      false
+    ),
+  publicJunctions: () =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        corridor: string;
+        latitude: string;
+        longitude: string;
+      }>
+    >("/api/junctions/", {}, false),
+  publicZones: () =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        coordinates: { center: [number, number]; radius_m: number };
+        restriction_type: string;
+        reason: string;
+      }>
+    >("/api/restricted-zones/", {}, false),
+
+  // --- pins (typed) ---
+  pin: {
+    create: (p: {
+      device_id: string;
+      latitude: number;
+      longitude: number;
+      corridor_id: string;
+      vehicle_type: string;
+      direction?: string;
+    }) =>
+      request<{
+        id: string;
+        pickup_code: string;
+        status: string;
+        junction_name: string;
+        corridor_name: string;
+        expires_at: string;
+      }>("/api/pins/", { method: "POST", body: JSON.stringify(p) }),
+    active: () =>
+      request<{
+        id: string;
+        pickup_code: string;
+        status: string;
+        junction_name: string;
+        corridor_name: string;
+        expires_at: string;
+      } | null>("/api/pins/active/").catch((e: unknown) => {
+        if (
+          e instanceof Error &&
+          "status" in e &&
+          (e as { status: number }).status === 404
+        )
+          return null;
+        throw e;
+      }),
+    cancel: (id: string) =>
+      request<unknown>(`/api/pins/${id}/cancel/`, { method: "POST" }),
+    status: (id: string) =>
+      request<{
+        id: string;
+        pickup_code: string;
+        status: string;
+        junction_name: string;
+        corridor_name: string;
+        expires_at: string;
+      }>(`/api/pins/${id}/status/`),
+  },
 
   wsDriverUrl: (accessToken: string) =>
     `${BASE.replace(/^http/, "ws")}/ws/driver/?token=${accessToken}`,

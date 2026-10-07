@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ApiUnreachable, api, saveTokens } from "@/lib/api";
+import { ApiUnreachable, api, saveTokens, setRole } from "@/lib/api";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -27,6 +27,7 @@ export default function SignupFlow({
   setResendIn,
   mock,
   setMock,
+  nextPath,
 }: {
   step: Step;
   setStep: (s: Step) => void;
@@ -38,6 +39,7 @@ export default function SignupFlow({
   setResendIn: (v: number | ((p: number) => number)) => void;
   mock: boolean;
   setMock: (v: boolean) => void;
+  nextPath: string;
 }) {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
@@ -139,6 +141,7 @@ export default function SignupFlow({
     }
     setError("");
     if (mock) {
+      setRole("passenger");
       setDone(true);
       return;
     }
@@ -146,10 +149,12 @@ export default function SignupFlow({
     try {
       const tokens = await api.otpVerify(email.trim(), code);
       saveTokens({ access: tokens.access, refresh: tokens.refresh });
+      setRole("passenger");
       setDone(true);
     } catch (e) {
       if (e instanceof ApiUnreachable) {
         setMock(true);
+        setRole("passenger");
         setDone(true);
       } else {
         setError(e instanceof Error ? e.message : "Verification failed.");
@@ -176,10 +181,10 @@ export default function SignupFlow({
           </p>
         </div>
         <p className="text-[14px] text-on-surface-variant">
-          You can now pin your waiting spot and receive verified live arrivals.
+          You can now pin your waiting spot.
         </p>
         <button
-          onClick={() => router.push("/passenger")}
+          onClick={() => router.push(nextPath)}
           className="w-full h-14 rounded-xl bg-primary-container text-on-primary text-[16px] font-semibold hover:bg-primary transition-colors"
         >
           Continue to set destination
@@ -198,9 +203,9 @@ export default function SignupFlow({
           {step === 4 && "Check your email"}
         </span>
         <span className="text-[14px] leading-relaxed text-on-surface-variant">
-          {step === 1 && "Enter your active mobile line to start signup."}
-          {step === 2 && "We send the OTP to this email address."}
-          {step === 3 && "Secure your account with a password."}
+          {step === 1 && "Your 10-digit mobile line."}
+          {step === 2 && "The code goes to this email."}
+          {step === 3 && "Choose a password."}
           {step === 4 && `Enter the 6-digit code sent to ${email || "your email"}.`}
         </span>
         {mock && step >= 3 && (
@@ -281,7 +286,7 @@ export default function SignupFlow({
             className="w-full rounded-xl bg-surface-container-low px-4 h-14 text-[16px] text-primary-container outline-none placeholder:text-outline focus:bg-surface-container-lowest focus:ring-2 focus:ring-secondary transition-all"
           />
           <span className="text-[13px] text-on-surface-variant">
-            OTP goes to this email, not SMS.
+            Code goes here, not SMS.
           </span>
         </div>
       )}
@@ -293,7 +298,7 @@ export default function SignupFlow({
               Enter 6-Digit Code
             </span>
             <span className="text-[14px] text-on-surface-variant block mt-space-xs">
-              Type with your physical keyboard.
+              Type with your keyboard.
             </span>
           </div>
           <div className="grid grid-cols-6 gap-3 w-full">
@@ -365,10 +370,11 @@ export default function SignupFlow({
           </div>
           <button
             type="button"
+            disabled={busy}
             onClick={submitOtp}
-            className="w-full h-14 bg-secondary text-on-secondary rounded-xl text-[16px] font-semibold flex items-center justify-center gap-2 hover:bg-on-secondary-fixed-variant transition-colors"
+            className="w-full h-14 bg-secondary text-on-secondary rounded-xl text-[16px] font-semibold flex items-center justify-center gap-2 hover:bg-on-secondary-fixed-variant transition-colors disabled:opacity-70"
           >
-            <span>Verify and continue</span>
+            <span>{busy ? "Verifying…" : "Verify and continue"}</span>
             <span className="material-symbols-outlined text-[20px]">
               arrow_forward
             </span>
@@ -446,7 +452,7 @@ export default function SignupFlow({
 
       <div className="flex flex-col gap-3 pt-2">
         <div className="flex gap-2">
-          {step > 1 && (
+          {step > 1 && step !== 4 && (
             <button
               type="button"
               onClick={() => {
@@ -458,29 +464,28 @@ export default function SignupFlow({
               Back
             </button>
           )}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (step === 1) submitPhone();
-              else if (step === 2) submitEmail();
-              else if (step === 3) submitPassword();
-              else submitOtp();
-            }}
-            className="flex-1 h-14 rounded-xl bg-secondary text-on-secondary text-[16px] font-semibold hover:bg-secondary-container transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
-          >
-            <span>
-              {busy && step === 3 && "Creating account…"}
-              {busy && step === 4 && "Verifying…"}
-              {!busy && step === 1 && "Continue"}
-              {!busy && step === 2 && "Continue"}
-              {!busy && step === 3 && "Create account"}
-              {!busy && step === 4 && "Verify code"}
-            </span>
-            <span className="material-symbols-outlined text-[18px]">
-              arrow_forward
-            </span>
-          </button>
+          {step !== 4 && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (step === 1) submitPhone();
+                else if (step === 2) submitEmail();
+                else submitPassword();
+              }}
+              className="flex-1 h-14 rounded-xl bg-secondary text-on-secondary text-[16px] font-semibold hover:bg-secondary-container transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              <span>
+                {busy && step === 3 && "Creating account…"}
+                {!busy && step === 1 && "Continue"}
+                {!busy && step === 2 && "Continue"}
+                {!busy && step === 3 && "Create account"}
+              </span>
+              <span className="material-symbols-outlined text-[18px]">
+                arrow_forward
+              </span>
+            </button>
+          )}
         </div>
         <p className="text-[13px] text-on-surface-variant text-center leading-relaxed">
           By continuing, you agree to Akwa Ibom State Transit passenger
