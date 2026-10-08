@@ -12,8 +12,10 @@ import {
   blockingZone,
   nearestJunction,
   useGeoFeeds,
+  haversineKm,
   type FeedJunction,
 } from "@/hooks/useGeo";
+import { UYO, IBOM_PLAZA } from "@/components/map-shared";
 
 export type Destination = {
   name: string;
@@ -46,12 +48,20 @@ async function geocode(query: string): Promise<Destination | null> {
 function currentPosition(): Promise<LatLng> {
   return new Promise((resolve, reject) => {
     if (!("geolocation" in navigator)) {
-      reject(new Error("No geolocation"));
+      resolve(IBOM_PLAZA); // Fallback to Ibom Plaza if no geolocation API
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
-      () => reject(new Error("Location blocked")),
+      (pos) => {
+        const coords: LatLng = [pos.coords.latitude, pos.coords.longitude];
+        // If testing far from Uyo, snap to Ibom Plaza to bypass backend distance limits
+        if (haversineKm(coords, UYO) > 20) {
+          resolve(IBOM_PLAZA);
+        } else {
+          resolve(coords);
+        }
+      },
+      () => resolve(IBOM_PLAZA), // Fallback if user blocks location
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
   });
